@@ -21,37 +21,6 @@ D3D12App::~D3D12App()
 {
 }
 
-int D3D12App::Run() {
-	//消息循环
-	//定义消息结构体
-	MSG msg = { 0 };
-	//每次循环开始都要重置计时器
-	gt.Reset();
-
-	while (msg.message != WM_QUIT) {
-		//如果有窗口消息就进行处理
-		if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {//PeekMessage函数会自动填充msg结构体元素
-			TranslateMessage(&msg);//键盘按键转换，将虚拟键消息转换为字符消息
-			DispatchMessage(&msg);//把消息分派给相应的窗口过程
-
-		}
-		else {
-			gt.Tick();//计算每两帧间隔时间
-			if (!gt.IsStoped()) {//如果不是暂停状态，我们才运行游戏
-				CalculateFrameState();
-				//否则就执行动画和游戏逻辑
-				Draw();
-			}
-			else {//如果是暂停状态，则休眠100秒
-				Sleep(100);
-			}
-
-		}
-	}
-
-	return (int)msg.wParam;
-}
-
 bool D3D12App::Init(HINSTANCE hInstance, int nShowCmd) {
 	if (!InitWindow(hInstance, nShowCmd)) {
 		return false;
@@ -143,17 +112,6 @@ bool D3D12App::InitDirect3D() {
 	CreateViewPortAndScissorRect();
 
 	return true;
-}
-
-void D3D12App::FlushCmdQueue() {
-	mCurrentFence++;
-	cmdQueue->Signal(fence.Get(), mCurrentFence);
-	if (fence->GetCompletedValue() < mCurrentFence) {
-		HANDLE eventHandle = CreateEvent(nullptr, false, false, L"FenceSetDone");
-		fence->SetEventOnCompletion(mCurrentFence, eventHandle);
-		WaitForSingleObject(eventHandle, INFINITE);
-		CloseHandle(eventHandle);
-	}
 }
 
 void D3D12App::CreateDevice() {
@@ -271,6 +229,17 @@ void D3D12App::CreateViewPortAndScissorRect() {
 	scissorRect.bottom = 720;
 }
 
+void D3D12App::FlushCmdQueue() {
+	mCurrentFence++;
+	cmdQueue->Signal(fence.Get(), mCurrentFence);
+	if (fence->GetCompletedValue() < mCurrentFence) {
+		HANDLE eventHandle = CreateEvent(nullptr, false, false, L"FenceSetDone");
+		fence->SetEventOnCompletion(mCurrentFence, eventHandle);
+		WaitForSingleObject(eventHandle, INFINITE);
+		CloseHandle(eventHandle);
+	}
+}
+
 void D3D12App::CalculateFrameState() {
 	static int frameCnt = 0;//总帧数
 	static float timeElapsed = 0.0f;//流逝的时间
@@ -289,4 +258,35 @@ void D3D12App::CalculateFrameState() {
 		frameCnt = 0;
 		timeElapsed += 1.0f;
 	}
+}
+
+int D3D12App::Run() {
+	//消息循环
+	//定义消息结构体
+	MSG msg = { 0 };
+	//每次循环开始都要重置计时器
+	gt.Reset();
+
+	while (msg.message != WM_QUIT) {
+		//如果有窗口消息就进行处理
+		if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {//PeekMessage函数会自动填充msg结构体元素
+			TranslateMessage(&msg);//键盘按键转换，将虚拟键消息转换为字符消息
+			DispatchMessage(&msg);//把消息分派给相应的窗口过程
+
+		}
+		else {
+			gt.Tick();//计算每两帧间隔时间
+			if (!gt.IsStoped()) {//如果不是暂停状态，我们才运行游戏
+				CalculateFrameState();
+				//否则就执行动画和游戏逻辑
+				Draw();
+			}
+			else {//如果是暂停状态，则休眠100秒
+				Sleep(100);
+			}
+
+		}
+	}
+
+	return (int)msg.wParam;
 }
