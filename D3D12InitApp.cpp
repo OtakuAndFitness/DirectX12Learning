@@ -7,7 +7,7 @@ public:
 	D3D12InitApp();
 	~D3D12InitApp();
 	virtual bool Init(HINSTANCE hInstance, int nShowCmd)override;
-
+	virtual void Update()override;
 	
 
 private:
@@ -74,6 +74,8 @@ private:
 
 	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
 	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
+
+	XMFLOAT4X4 mWorld = MathHelper::Identity4x4();
 };
 
 D3D12InitApp::D3D12InitApp() : D3D12App()
@@ -311,6 +313,29 @@ void D3D12InitApp::Draw() {
 	ref_mCurrentBackBuffer = (ref_mCurrentBackBuffer + 1) % 2;
 
 	FlushCmdQueue();
+}
+
+void D3D12InitApp::Update() {
+	ObjectConstants objConstants;
+	//构建观察矩阵
+	float x = 0;
+	float z = 0;
+	float y = 5.0f;
+	XMVECTOR pos = XMVectorSet(x, y, z, 1.0f);
+	XMVECTOR target = XMVectorZero();
+	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	XMMATRIX v = XMMatrixLookAtLH(pos, target, up);
+	//构建投影矩阵
+	XMMATRIX p = XMMatrixPerspectiveFovLH(0.25f * 3.1416f, 1280.0f / 720.0f, 1.0f, 1000.0f);
+	//XMStoreFloat4x4(&proj, p);
+	//构建世界矩阵
+	XMMATRIX w = XMLoadFloat4x4(&mWorld);
+	//矩阵计算
+	XMMATRIX WVP_Matrix = v * p;
+	//XMMATRIX赋值给XMFLOAT4X4
+	XMStoreFloat4x4(&objConstants.WorldViewProj, XMMatrixTranspose(WVP_Matrix));
+	//将数据拷贝至GPU缓存
+	mObjectCB->CopyData(0, objConstants);
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int nShowCmd) {

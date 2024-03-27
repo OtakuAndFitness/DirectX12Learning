@@ -35,6 +35,7 @@ public:
 	virtual bool Init(HINSTANCE hInstance, int nShowCmd);
 	bool InitWindow(HINSTANCE hInstance, int nShowCmd);
 	bool InitDirect3D();
+	virtual void Update() = 0;
 	virtual void Draw()=0;
 
 	void CreateDevice();

@@ -278,6 +278,7 @@ int D3D12App::Run() {
 			if (!gt.IsStoped()) {//如果不是暂停状态，我们才运行游戏
 				CalculateFrameState();
 				//否则就执行动画和游戏逻辑
+				Update();
 				Draw();
 			}
 			else {//如果是暂停状态，则休眠100秒
