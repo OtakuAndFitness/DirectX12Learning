@@ -209,8 +209,7 @@ void D3D12App::CreateDSV() {
 	optClear.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
 	optClear.DepthStencil.Depth = 1;
 	optClear.DepthStencil.Stencil = 0;
-	CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
-	ThrowIfFailed(d3dDevice->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &dsvResourceDesc, D3D12_RESOURCE_STATE_COMMON, &optClear, IID_PPV_ARGS(&depthStencilBuffer)));
+	ThrowIfFailed(d3dDevice->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE, &dsvResourceDesc, D3D12_RESOURCE_STATE_COMMON, &optClear, IID_PPV_ARGS(depthStencilBuffer.GetAddressOf())));
 	d3dDevice->CreateDepthStencilView(depthStencilBuffer.Get(), nullptr, dsvHeap->GetCPUDescriptorHandleForHeapStart());
 }
 

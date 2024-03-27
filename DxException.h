@@ -20,8 +20,11 @@
 #include <sstream>
 #include <windowsx.h>
 #include <comdef.h>
+#include "d3dx12.h"
+
 
 using namespace std;
+using namespace Microsoft::WRL;
 
 inline wstring AnsiToWString(const string& str) {
 	WCHAR buffer[512];
@@ -51,3 +54,13 @@ public:
 	} \
 }
 #endif // !ThrowIfFailed
+
+class d3dUtil {
+public:
+	static UINT CalcConstantBufferByteSize(UINT byteSize) {
+		return (byteSize + 255) & ~255;
+	}
+
+	static ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer);
+	static ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target);
+};

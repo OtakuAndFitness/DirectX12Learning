@@ -2,13 +2,28 @@
 
 #include "DxException.h"
 #include "GameTimer.h"
-#include "d3dx12.h"
-
-using namespace Microsoft::WRL;
+#include "MathHelper.h"
 
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "D3D12.lib")
 #pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "dxguid.lib")
+
+using namespace DirectX;
+
+//定义顶点结构体
+struct Vertex
+{
+	XMFLOAT3 Pos;
+	XMFLOAT4 Color;
+};
+
+//单个物体的常量数据
+struct ObjectConstants
+{
+	//初始化物体空间变换到裁剪空间矩阵，Identity4x4()是单位矩阵
+	XMFLOAT4X4 WorldViewProj = MathHelper::Identity4x4();
+};
 
 class D3D12App {
 protected:
@@ -17,7 +32,7 @@ protected:
 
 public:
 	int Run();
-	bool Init(HINSTANCE hInstance, int nShowCmd);
+	virtual bool Init(HINSTANCE hInstance, int nShowCmd);
 	bool InitWindow(HINSTANCE hInstance, int nShowCmd);
 	bool InitDirect3D();
 	virtual void Draw()=0;
