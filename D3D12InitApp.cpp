@@ -83,7 +83,7 @@ void D3D12InitApp::BuildBoxGeometry() {
 	};
 
 	CONST UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
-	CONST UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
+	CONST UINT ibByteSize = (UINT)indices.size() * sizeof(uint16_t);
 
 	mBoxGeo = make_unique<MeshGeometry>();
 

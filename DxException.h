@@ -62,7 +62,7 @@ public:
 	}
 
 	static ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer);
-	static ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target);
+	static ComPtr<ID3DBlob> CompileShader(const wstring& filename, const D3D_SHADER_MACRO* defines, const string& entrypoint, const string& target);
 };
 
 struct MeshGeometry {
