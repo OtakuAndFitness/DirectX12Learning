@@ -7,7 +7,7 @@
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "D3D12.lib")
 #pragma comment(lib, "dxgi.lib")
-#pragma comment(lib, "dxguid.lib")
+//#pragma comment(lib, "dxguid.lib")
 
 using namespace DirectX;
 
@@ -36,7 +36,7 @@ public:
 	bool InitWindow(HINSTANCE hInstance, int nShowCmd);
 	bool InitDirect3D();
 	virtual void Update() = 0;
-	virtual void Draw()=0;
+	virtual void Draw() = 0;
 
 	void CreateDevice();
 	void CreateFence();

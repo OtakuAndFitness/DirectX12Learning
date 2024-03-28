@@ -64,3 +64,38 @@ public:
 	static ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer);
 	static ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target);
 };
+
+struct MeshGeometry {
+	ComPtr<ID3DBlob> vertexBufferCPU = nullptr;
+	ComPtr<ID3DBlob> indexBufferCPU = nullptr;
+
+	ComPtr<ID3D12Resource> indexBufferGPU = nullptr;
+	ComPtr<ID3D12Resource> vertexBufferGPU = nullptr;
+
+	ComPtr<ID3D12Resource> vertexBufferUploader = nullptr;
+	ComPtr<ID3D12Resource> IndexBufferUploader = nullptr;
+
+	UINT VertexByteStride = 0;
+	UINT VertexBufferByteSize = 0;
+	UINT IndexBufferByteSize = 0;
+
+	UINT IndexCount = 0;
+
+	D3D12_INDEX_BUFFER_VIEW GetIbv()const {
+		D3D12_INDEX_BUFFER_VIEW ibv;
+		ibv.BufferLocation = indexBufferGPU->GetGPUVirtualAddress();
+		ibv.Format = DXGI_FORMAT_R16_UINT;
+		ibv.SizeInBytes = IndexBufferByteSize;
+
+		return ibv;
+	}
+
+	D3D12_VERTEX_BUFFER_VIEW GetVbv()const {
+		D3D12_VERTEX_BUFFER_VIEW vbv;
+		vbv.BufferLocation = vertexBufferGPU->GetGPUVirtualAddress();
+		vbv.StrideInBytes = VertexByteStride;
+		vbv.SizeInBytes = VertexBufferByteSize;
+
+		return vbv;
+	}
+};

@@ -17,8 +17,6 @@ private:
 	void BuildRootSignature();
 	void BuildPSO();
 	void BuildShadersAndInputLayout();
-	D3D12_INDEX_BUFFER_VIEW GetIbv() const;
-	D3D12_VERTEX_BUFFER_VIEW GetVbv() const;
 	virtual void Draw()override;
 
 private:
@@ -30,8 +28,20 @@ private:
 	ComPtr<ID3DBlob> mvsByteCode = nullptr;
 	ComPtr<ID3DBlob> mpsByteCode = nullptr;
 	ComPtr<ID3D12PipelineState> mPSO = nullptr;
-	ComPtr<ID3D12Resource> indexBufferGPU = nullptr;
-	ComPtr<ID3D12Resource> vertexBufferGPU = nullptr;
+	unique_ptr<MeshGeometry> mBoxGeo = nullptr;
+
+	XMFLOAT4X4 mWorld = MathHelper::Identity4x4();
+};
+
+D3D12InitApp::D3D12InitApp() : D3D12App()
+{
+}
+
+D3D12InitApp::~D3D12InitApp()
+{
+}
+
+void D3D12InitApp::BuildBoxGeometry() {
 	//实例化顶点结构体并填充
 	array<Vertex, 8> vertices =
 	{
@@ -45,7 +55,7 @@ private:
 		Vertex({ XMFLOAT3(+1.0f, -1.0f, +1.0f), XMFLOAT4(Colors::Magenta) })
 	};
 
-	std::array<std::uint16_t, 36> indices =
+	array<uint16_t, 36> indices =
 	{
 		// front face
 		0, 1, 2,
@@ -72,34 +82,26 @@ private:
 		4, 3, 7
 	};
 
-	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
-	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
+	CONST UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+	CONST UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
 
-	XMFLOAT4X4 mWorld = MathHelper::Identity4x4();
-};
+	mBoxGeo = make_unique<MeshGeometry>();
 
-D3D12InitApp::D3D12InitApp() : D3D12App()
-{
-}
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &mBoxGeo->vertexBufferCPU));//创建顶点数据内存空间
+	CopyMemory(mBoxGeo->vertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);//将顶点数据拷贝至顶点系统内存中
 
-D3D12InitApp::~D3D12InitApp()
-{
-}
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &mBoxGeo->indexBufferCPU));//创建索引数据内存空间
+	CopyMemory(mBoxGeo->indexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);//将索引数据拷贝至索引系统内存中
 
-void D3D12InitApp::BuildBoxGeometry() {
-	ComPtr<ID3DBlob> vertexBufferCPU = nullptr;
-	ThrowIfFailed(D3DCreateBlob(vbByteSize, &vertexBufferCPU));//创建顶点数据内存空间
-	CopyMemory(vertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);//将顶点数据拷贝至顶点系统内存中
+	mBoxGeo->vertexBufferGPU = d3dUtil::CreateDefaultBuffer(d3dDevice.Get(), cmdList.Get(), vertices.data(), vbByteSize, mBoxGeo->vertexBufferUploader);
 
-	ComPtr<ID3DBlob> indexBufferCPU = nullptr;
-	ThrowIfFailed(D3DCreateBlob(ibByteSize, &indexBufferCPU));//创建索引数据内存空间
-	CopyMemory(indexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);//将索引数据拷贝至索引系统内存中
+	mBoxGeo->indexBufferGPU = d3dUtil::CreateDefaultBuffer(d3dDevice.Get(), cmdList.Get(), indices.data(), ibByteSize, mBoxGeo->IndexBufferUploader);
 
-	ComPtr<ID3D12Resource> vertexBufferUploader = nullptr;
-	vertexBufferGPU = d3dUtil::CreateDefaultBuffer(d3dDevice.Get(), cmdList.Get(), vertices.data(), vbByteSize, vertexBufferUploader);
+	mBoxGeo->VertexByteStride = sizeof(Vertex);
+	mBoxGeo->VertexBufferByteSize = vbByteSize;
+	mBoxGeo->IndexBufferByteSize = ibByteSize;
 
-	ComPtr<ID3D12Resource> IndexBufferUploader = nullptr;
-	indexBufferGPU = d3dUtil::CreateDefaultBuffer(d3dDevice.Get(), cmdList.Get(), indices.data(), ibByteSize, IndexBufferUploader);
+	mBoxGeo->IndexCount = (UINT)indices.size();
 
 }
 
@@ -217,6 +219,7 @@ bool D3D12InitApp::Init(HINSTANCE hInstance, int nShowCmd) {
 	if (!D3D12App::Init(hInstance, nShowCmd)) {
 		return false;
 	}
+
 	ThrowIfFailed(cmdList->Reset(cmdAllocator.Get(), nullptr));
 
 	BuildDescriptorHeaps();
@@ -233,24 +236,6 @@ bool D3D12InitApp::Init(HINSTANCE hInstance, int nShowCmd) {
 	FlushCmdQueue();
 
 	return true;
-}
-
-D3D12_INDEX_BUFFER_VIEW D3D12InitApp::GetIbv()const {
-	D3D12_INDEX_BUFFER_VIEW ibv;
-	ibv.BufferLocation = indexBufferGPU->GetGPUVirtualAddress();
-	ibv.Format = DXGI_FORMAT_R16_UINT;
-	ibv.SizeInBytes = ibByteSize;
-
-	return ibv;
-}
-
-D3D12_VERTEX_BUFFER_VIEW D3D12InitApp::GetVbv()const {
-	D3D12_VERTEX_BUFFER_VIEW vbv;
-	vbv.BufferLocation = vertexBufferGPU->GetGPUVirtualAddress();
-	vbv.StrideInBytes = sizeof(Vertex);
-	vbv.SizeInBytes = vbByteSize;
-
-	return vbv;
 }
 
 void D3D12InitApp::Draw() {
@@ -286,16 +271,16 @@ void D3D12InitApp::Draw() {
 	//设置根签名
 	cmdList->SetGraphicsRootSignature(mRootSignature.Get());
 	//设置顶点缓冲区
-	cmdList->IASetVertexBuffers(0, 1, &GetVbv());
+	cmdList->IASetVertexBuffers(0, 1, &mBoxGeo->GetVbv());
 	//设置索引缓冲区
-	cmdList->IASetIndexBuffer(&GetIbv());
+	cmdList->IASetIndexBuffer(&mBoxGeo->GetIbv());
 	//将图元拓扑类型传入流水线
 	cmdList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	//设置根描述符表
 	cmdList->SetGraphicsRootDescriptorTable(0, //根参数的起始索引
 		mCbvHeap->GetGPUDescriptorHandleForHeapStart());
 	//绘制顶点（通过索引缓冲区绘制）
-	cmdList->DrawIndexedInstanced(sizeof(indices), //每个实例要绘制的索引数
+	cmdList->DrawIndexedInstanced(sizeof(mBoxGeo->IndexCount), //每个实例要绘制的索引数
 		1,//实例化个数
 		0,//起始索引位置
 		0,//子物体起始索引在全局索引中的位置
@@ -319,8 +304,8 @@ void D3D12InitApp::Update() {
 	ObjectConstants objConstants;
 	//构建观察矩阵
 	float x = 0;
-	float z = 0;
-	float y = 5.0f;
+	float y = 0;
+	float z = 5.0f;
 	XMVECTOR pos = XMVectorSet(x, y, z, 1.0f);
 	XMVECTOR target = XMVectorZero();
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
