@@ -9,28 +9,17 @@
 #pragma comment(lib, "dxgi.lib")
 //#pragma comment(lib, "dxguid.lib")
 
-using namespace DirectX;
 
-//定义顶点结构体
-struct Vertex
-{
-	XMFLOAT3 Pos;
-	XMFLOAT4 Color;
-};
-
-//单个物体的常量数据
-struct ObjectConstants
-{
-	//初始化物体空间变换到裁剪空间矩阵，Identity4x4()是单位矩阵
-	XMFLOAT4X4 WorldViewProj = MathHelper::Identity4x4();
-};
 
 class D3D12App {
 protected:
-	D3D12App();
+	D3D12App(HINSTANCE hInstance);
 	virtual ~D3D12App();
 
 public:
+	static D3D12App* GetApp();
+	virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 	int Run();
 	virtual bool Init(HINSTANCE hInstance, int nShowCmd);
 	bool InitWindow(HINSTANCE hInstance, int nShowCmd);
@@ -53,7 +42,17 @@ public:
 
 	void CalculateFrameState();
 
+	virtual void OnResize();
+
 protected:
+	virtual void OnMouseDown(WPARAM btnState, int x, int y) { }
+	virtual void OnMouseUp(WPARAM btnState, int x, int y) { }
+	virtual void OnMouseMove(WPARAM btnState, int x, int y) { }
+
+protected:
+	static D3D12App* mApp;
+
+	HINSTANCE mhAppInst = nullptr;
 	HWND mhMainWnd = 0;
 
 	GameTimer gt;
@@ -80,4 +79,12 @@ protected:
 	D3D12_RECT scissorRect;
 
 	int mCurrentFence = 0;
+
+	int mClientWidth = 1280;
+	int mClientHeight = 720;
+
+	bool      mAppPaused = false;  // is the application paused?
+	bool      mMinimized = false;  // is the application minimized?
+	bool      mMaximized = false;  // is the application maximized?
+	bool      mResizing = false;   // are the resize bars being dragged?
 };

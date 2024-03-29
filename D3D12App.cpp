@@ -1,7 +1,8 @@
 #include "D3D12App.h"
+#include <cassert>
 
 LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lparam) {
-	switch (msg)
+	/*switch (msg)
 	{
 		case WM_DESTROY:
 			PostQuitMessage(0);
@@ -10,11 +11,85 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lparam) 
 			break;
 	}
 
-	return DefWindowProc(hwnd, msg, wParam, lparam);
+	return DefWindowProc(hwnd, msg, wParam, lparam);*/
+	return D3D12App::GetApp()->MsgProc(hwnd, msg, wParam, lparam);
 }
 
-D3D12App::D3D12App()
+LRESULT D3D12App::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+	//消息处理
+	switch (msg)
+	{
+		case WM_SIZE:
+			mClientWidth = LOWORD(lParam);
+			mClientHeight = HIWORD(lParam);
+			if (d3dDevice) {
+				if (wParam == SIZE_MINIMIZED) {
+					mAppPaused = true;
+					mMinimized = true;
+					mMaximized = false;
+				}
+				else if (wParam == SIZE_MAXIMIZED) {
+					mAppPaused = false;
+					mMinimized = false;
+					mMaximized = true;
+					OnResize();
+				}
+				else if (wParam == SIZE_RESTORED) {
+					if (mMinimized) {
+						mAppPaused = false;
+						mMinimized = false;
+						OnResize();
+					}
+					else if (mMaximized) {
+						mAppPaused = false;
+						mMaximized = false;
+						OnResize();
+					}
+					else if (mResizing) {
+
+					}
+					else {
+						OnResize();
+					}
+				}
+			}
+			return 0;
+			//鼠标按键按下时的触发（左中右）
+			case WM_LBUTTONDOWN:
+			case WM_MBUTTONDOWN:
+			case WM_RBUTTONDOWN:
+				//wParam为输入的虚拟键代码，lParam为系统反馈的光标信息
+				OnMouseDown(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+				return 0;
+			//鼠标按键抬起时的触发（左中右）
+			case WM_LBUTTONUP:
+			case WM_MBUTTONUP:
+			case WM_RBUTTONUP:
+				OnMouseUp(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+				return 0;
+			//鼠标移动的触发
+			case WM_MOUSEMOVE:
+				OnMouseMove(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+				return 0;
+			//当窗口被销毁时，终止消息循环
+			case WM_DESTROY:
+				PostQuitMessage(0);//终止消息循环，并发出WM_QUIT消息
+				return 0;
+			default:
+				break;
+	}
+	//将上面没有处理的消息转发给默认的窗口过程
+	return DefWindowProc(hwnd, msg, wParam, lParam);
+}
+
+D3D12App* D3D12App::mApp = nullptr;
+D3D12App* D3D12App::GetApp() {
+	return mApp;
+}
+D3D12App::D3D12App(HINSTANCE hInstance) : mhAppInst(hInstance)
 {
+	assert(mApp == nullptr);
+	mApp = this;
 }
 
 D3D12App::~D3D12App()
@@ -25,12 +100,15 @@ bool D3D12App::Init(HINSTANCE hInstance, int nShowCmd) {
 	if (!InitWindow(hInstance, nShowCmd)) {
 		return false;
 	}
-	else if (!InitDirect3D()) {
+	
+	if (!InitDirect3D()) {
 		return false;
 	}
-	else {
-		return true;
-	}
+	
+	OnResize();
+	
+	return true;
+	
 }
 
 bool D3D12App::InitWindow(HINSTANCE hInstance, int nShowCmd) {
@@ -56,8 +134,8 @@ bool D3D12App::InitWindow(HINSTANCE hInstance, int nShowCmd) {
 	RECT R;
 	R.left = 0;
 	R.top = 0;
-	R.right = 1280;
-	R.bottom = 720;
+	R.right = mClientWidth;
+	R.bottom = mClientHeight;
 	AdjustWindowRect(&R, WS_OVERLAPPEDWINDOW, false);//根据客户区矩形的大小和窗口样式计算窗口大小
 	int width = R.right - R.left;
 	int height = R.bottom - R.top;
@@ -107,9 +185,9 @@ bool D3D12App::InitDirect3D() {
 	CreateCommandObject();
 	CreateSwapChain();
 	CreateDexcriptorHeap();
-	CreateRTV();
+	/*CreateRTV();
 	CreateDSV();
-	CreateViewPortAndScissorRect();
+	CreateViewPortAndScissorRect();*/
 
 	return true;
 }
@@ -217,15 +295,15 @@ void D3D12App::CreateDSV() {
 void D3D12App::CreateViewPortAndScissorRect() {
 	viewPort.TopLeftX = 0;
 	viewPort.TopLeftY = 0;
-	viewPort.Width = 1280;
-	viewPort.Height = 720;
+	viewPort.Width = static_cast<float>(mClientWidth);
+	viewPort.Height = static_cast<float>(mClientHeight);
 	viewPort.MaxDepth = 1.0f;
 	viewPort.MinDepth = 0.0f;
 
 	scissorRect.left = 0;
 	scissorRect.right = 0;
-	scissorRect.right = 1280;
-	scissorRect.bottom = 720;
+	scissorRect.right = mClientWidth;
+	scissorRect.bottom = mClientHeight;
 }
 
 void D3D12App::FlushCmdQueue() {
@@ -257,6 +335,31 @@ void D3D12App::CalculateFrameState() {
 		frameCnt = 0;
 		timeElapsed += 1.0f;
 	}
+}
+
+void D3D12App::OnResize() {
+	assert(d3dDevice);
+	assert(swapChain);
+	assert(cmdAllocator);
+	FlushCmdQueue();
+	ThrowIfFailed(cmdList->Reset(cmdAllocator.Get(), nullptr));
+	for (int i = 0; i < 2; i++)
+	{
+		swapChainBuffer[i].Reset();
+	}
+	depthStencilBuffer.Reset();
+	ThrowIfFailed(swapChain->ResizeBuffers(2, mClientWidth, mClientHeight, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH));
+	mCurrentBackBuffer = 0;
+
+	CreateRTV();
+	CreateDSV();
+	CreateViewPortAndScissorRect();
+
+	ThrowIfFailed(cmdList->Close());
+	ID3D12CommandList* cmdsLists[] = { cmdList.Get() };
+	cmdQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
+
+	FlushCmdQueue();
 }
 
 int D3D12App::Run() {

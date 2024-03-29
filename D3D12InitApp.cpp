@@ -1,13 +1,32 @@
 #include "D3D12App.h"
 #include "UploadBuffer.h"
 
+using namespace DirectX;
+
+//定义顶点结构体
+struct Vertex
+{
+	XMFLOAT3 Pos;
+	XMFLOAT4 Color;
+};
+
+//单个物体的常量数据
+struct ObjectConstants
+{
+	//初始化物体空间变换到裁剪空间矩阵，Identity4x4()是单位矩阵
+	XMFLOAT4X4 WorldViewProj = MathHelper::Identity4x4();
+};
 
 class D3D12InitApp : public D3D12App {
 public:
-	D3D12InitApp();
+	D3D12InitApp(HINSTANCE hInstance);
 	~D3D12InitApp();
 	virtual bool Init(HINSTANCE hInstance, int nShowCmd)override;
 	virtual void Update()override;
+
+	virtual void OnMouseDown(WPARAM btnState, int x, int y)override;
+	virtual void OnMouseUp(WPARAM btnState, int x, int y)override;
+	virtual void OnMouseMove(WPARAM btnState, int x, int y)override;
 	
 
 private:
@@ -18,6 +37,7 @@ private:
 	void BuildPSO();
 	void BuildShadersAndInputLayout();
 	virtual void Draw()override;
+	virtual void OnResize()override;
 
 private:
 	ComPtr<ID3D12DescriptorHeap> mCbvHeap = nullptr;
@@ -31,9 +51,17 @@ private:
 	unique_ptr<MeshGeometry> mBoxGeo = nullptr;
 
 	XMFLOAT4X4 mWorld = MathHelper::Identity4x4();
+	XMFLOAT4X4 mView = MathHelper::Identity4x4();
+	XMFLOAT4X4 mProj = MathHelper::Identity4x4();
+
+	POINT mLastMousePos;
+
+	float mTheta = 1.5f * XM_PI;
+	float mPhi = XM_PIDIV4;
+	float mRadius = 5.0f;
 };
 
-D3D12InitApp::D3D12InitApp() : D3D12App()
+D3D12InitApp::D3D12InitApp(HINSTANCE hInstance) : D3D12App(hInstance)
 {
 }
 
@@ -240,18 +268,18 @@ bool D3D12InitApp::Init(HINSTANCE hInstance, int nShowCmd) {
 
 void D3D12InitApp::Draw() {
 	ThrowIfFailed(cmdAllocator->Reset());//重复使用记录命令的相关内存
-	ThrowIfFailed(cmdList->Reset(cmdAllocator.Get(), nullptr));//复用命令列表及其内存
-
-	UINT& ref_mCurrentBackBuffer = mCurrentBackBuffer;
-	//转换资源为后台缓冲区资源，从呈现到渲染目标转换
-	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(swapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+	ThrowIfFailed(cmdList->Reset(cmdAllocator.Get(), mPSO.Get()));//复用命令列表及其内存
 
 	//设置视口和剪裁矩形
 	cmdList->RSSetViewports(1, &viewPort);
 	cmdList->RSSetScissorRects(1, &scissorRect);
 
+	UINT& ref_mCurrentBackBuffer = mCurrentBackBuffer;
+	//转换资源为后台缓冲区资源，从呈现到渲染目标转换
+	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(swapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtvHeap->GetCPUDescriptorHandleForHeapStart(), ref_mCurrentBackBuffer, rtvDescriptorSize);
-	cmdList->ClearRenderTargetView(rtvHandle, DirectX::Colors::LightBlue, 0, nullptr); //清除RT背景色为淡蓝，并且不设置裁剪矩形
+	cmdList->ClearRenderTargetView(rtvHandle, Colors::LightSteelBlue, 0, nullptr); //清除RT背景色为淡蓝，并且不设置裁剪矩形
 	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = dsvHeap->GetCPUDescriptorHandleForHeapStart();
 	cmdList->ClearDepthStencilView(dsvHandle, 
 		D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, //Flag
@@ -300,27 +328,71 @@ void D3D12InitApp::Draw() {
 	FlushCmdQueue();
 }
 
+void D3D12InitApp::OnResize()
+{
+	D3D12App::OnResize();
+
+	XMMATRIX p = XMMatrixPerspectiveFovLH(0.25f * 3.1416f, static_cast<float>(mClientWidth) / mClientHeight, 1.0f, 1000.0f);
+	XMStoreFloat4x4(&mProj, p);
+}
+
 void D3D12InitApp::Update() {
 	ObjectConstants objConstants;
 	//构建观察矩阵
-	float x = 0;
-	float y = 0;
-	float z = 5.0f;
+	float x =mRadius * sinf(mPhi) * cosf(mTheta);
+	float y = mRadius * cosf(mPhi);
+	float z = mRadius * sinf(mPhi) * sinf(mTheta);
+	
 	XMVECTOR pos = XMVectorSet(x, y, z, 1.0f);
 	XMVECTOR target = XMVectorZero();
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
 	XMMATRIX v = XMMatrixLookAtLH(pos, target, up);
-	//构建投影矩阵
-	XMMATRIX p = XMMatrixPerspectiveFovLH(0.25f * 3.1416f, 1280.0f / 720.0f, 1.0f, 1000.0f);
-	//XMStoreFloat4x4(&proj, p);
+	XMStoreFloat4x4(&mView, v);
 	//构建世界矩阵
 	XMMATRIX w = XMLoadFloat4x4(&mWorld);
+	//构建投影矩阵
+	XMMATRIX p = XMLoadFloat4x4(&mProj);
 	//矩阵计算
-	XMMATRIX WVP_Matrix = v * p;
+	XMMATRIX WVP_Matrix = w * v * p;
 	//XMMATRIX赋值给XMFLOAT4X4
 	XMStoreFloat4x4(&objConstants.WorldViewProj, XMMatrixTranspose(WVP_Matrix));
 	//将数据拷贝至GPU缓存
 	mObjectCB->CopyData(0, objConstants);
+}
+
+void D3D12InitApp::OnMouseDown(WPARAM btnState, int x, int y) {
+	mLastMousePos.x = x;
+	mLastMousePos.y = y;
+
+	SetCapture(mhMainWnd);
+}
+
+void D3D12InitApp::OnMouseUp(WPARAM btnState, int x, int y)
+{
+	ReleaseCapture();
+}
+
+void D3D12InitApp::OnMouseMove(WPARAM btnState, int x, int y)
+{
+	if ((btnState & MK_LBUTTON) != 0) {
+		float dx = XMConvertToRadians(static_cast<float>(x - mLastMousePos.x) * 0.25f);
+		float dy = XMConvertToRadians(static_cast<float>(y - mLastMousePos.y) * 0.25f);
+		
+		mTheta += dx;
+		mPhi += dy;
+		
+		mPhi = MathHelper::Clamp(mPhi, 0.1f, 3.1416f - 0.1f);
+	}
+	else if ((btnState & MK_RBUTTON) != 0) {
+		float dx = 0.005f * static_cast<float>(x - mLastMousePos.x);
+		float dy = 0.005f * static_cast<float>(y - mLastMousePos.y);
+		mRadius += dx - dy;
+		mRadius = MathHelper::Clamp(mRadius, 1.0f, 20.0f);
+	}
+
+	mLastMousePos.x = x;
+	mLastMousePos.y = y;
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int nShowCmd) {
@@ -330,7 +402,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 
 	try
 	{
-		D3D12InitApp theApp;
+		D3D12InitApp theApp(hInstance);
 		if (!theApp.Init(hInstance, nShowCmd)) {
 			return 0;
 		}
