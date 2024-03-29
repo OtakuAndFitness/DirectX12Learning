@@ -129,7 +129,11 @@ void D3D12InitApp::BuildBoxGeometry() {
 	mBoxGeo->VertexBufferByteSize = vbByteSize;
 	mBoxGeo->IndexBufferByteSize = ibByteSize;
 
-	mBoxGeo->IndexCount = (UINT)indices.size();
+	SubmeshGeometry subMesh;
+	subMesh.BaseVertexLocation = 0;
+	subMesh.IndexCount = (UINT)indices.size();
+	subMesh.StartIndexLocation = 0;
+	mBoxGeo->DrawArgs["Box"] = subMesh;
 
 }
 
@@ -308,7 +312,7 @@ void D3D12InitApp::Draw() {
 	cmdList->SetGraphicsRootDescriptorTable(0, //根参数的起始索引
 		mCbvHeap->GetGPUDescriptorHandleForHeapStart());
 	//绘制顶点（通过索引缓冲区绘制）
-	cmdList->DrawIndexedInstanced(sizeof(mBoxGeo->IndexCount), //每个实例要绘制的索引数
+	cmdList->DrawIndexedInstanced(mBoxGeo->DrawArgs["Box"].IndexCount, //每个实例要绘制的索引数
 		1,//实例化个数
 		0,//起始索引位置
 		0,//子物体起始索引在全局索引中的位置

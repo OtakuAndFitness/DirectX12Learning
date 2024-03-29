@@ -83,8 +83,8 @@ protected:
 	int mClientWidth = 1280;
 	int mClientHeight = 720;
 
-	bool      mAppPaused = false;  // is the application paused?
-	bool      mMinimized = false;  // is the application minimized?
-	bool      mMaximized = false;  // is the application maximized?
-	bool      mResizing = false;   // are the resize bars being dragged?
+	bool mAppPaused = false;  
+	bool mMinimized = false; 
+	bool mMaximized = false; 
+	bool mResizing = false;
 };

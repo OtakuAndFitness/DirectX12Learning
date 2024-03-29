@@ -65,6 +65,15 @@ public:
 	static ComPtr<ID3DBlob> CompileShader(const wstring& filename, const D3D_SHADER_MACRO* defines, const string& entrypoint, const string& target);
 };
 
+struct SubmeshGeometry
+{
+	UINT IndexCount = 0;
+	UINT StartIndexLocation = 0;
+	INT BaseVertexLocation = 0;
+
+	DirectX::BoundingBox Bounds;
+};
+
 struct MeshGeometry {
 	ComPtr<ID3DBlob> vertexBufferCPU = nullptr;
 	ComPtr<ID3DBlob> indexBufferCPU = nullptr;
@@ -74,6 +83,8 @@ struct MeshGeometry {
 
 	ComPtr<ID3D12Resource> vertexBufferUploader = nullptr;
 	ComPtr<ID3D12Resource> IndexBufferUploader = nullptr;
+
+	unordered_map<string, SubmeshGeometry> DrawArgs;
 
 	UINT VertexByteStride = 0;
 	UINT VertexBufferByteSize = 0;

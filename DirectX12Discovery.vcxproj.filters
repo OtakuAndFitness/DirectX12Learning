@@ -49,6 +49,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Shaders\Color.hlsl" />
+    <FxCompile Include="Shaders\color.hlsl" />
   </ItemGroup>
 </Project>
