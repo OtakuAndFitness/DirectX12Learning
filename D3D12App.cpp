@@ -229,8 +229,8 @@ void D3D12App::CreateCommandObject() {
 void D3D12App::CreateSwapChain() {
 	swapChain.Reset();
 	DXGI_SWAP_CHAIN_DESC swapChainDesc;
-	swapChainDesc.BufferDesc.Width = 1280;
-	swapChainDesc.BufferDesc.Height = 720;
+	swapChainDesc.BufferDesc.Width = mClientWidth;
+	swapChainDesc.BufferDesc.Height = mClientHeight;
 	swapChainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	swapChainDesc.BufferDesc.RefreshRate.Denominator = 1;
 	swapChainDesc.BufferDesc.RefreshRate.Numerator = 60;
@@ -275,8 +275,8 @@ void D3D12App::CreateDSV() {
 	dsvResourceDesc.Alignment = 0;
 	dsvResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 	dsvResourceDesc.DepthOrArraySize = 1;
-	dsvResourceDesc.Width = 1280;
-	dsvResourceDesc.Height = 720;
+	dsvResourceDesc.Width = mClientWidth;
+	dsvResourceDesc.Height = mClientHeight;
 	dsvResourceDesc.MipLevels = 1;
 	dsvResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	dsvResourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
