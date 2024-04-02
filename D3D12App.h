@@ -33,7 +33,7 @@ public:
 	void SetMSAA();
 	void CreateCommandObject();
 	void CreateSwapChain();
-	void CreateDexcriptorHeap();
+	void CreateDescriptorHeap();
 	void CreateRTV();
 	void CreateDSV();
 	void CreateViewPortAndScissorRect();
@@ -78,7 +78,7 @@ protected:
 	D3D12_VIEWPORT viewPort;
 	D3D12_RECT scissorRect;
 
-	int mCurrentFence = 0;
+	int mCurrentFence = 0;//初始CPU上的围栏点为0
 
 	int mClientWidth = 1280;
 	int mClientHeight = 720;

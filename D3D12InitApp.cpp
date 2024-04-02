@@ -335,7 +335,7 @@ void D3D12InitApp::Draw() {
 void D3D12InitApp::OnResize()
 {
 	D3D12App::OnResize();
-
+	//构建投影矩阵
 	XMMATRIX p = XMMatrixPerspectiveFovLH(0.25f * 3.1416f, static_cast<float>(mClientWidth) / mClientHeight, 1.0f, 1000.0f);
 	XMStoreFloat4x4(&mProj, p);
 }
@@ -355,7 +355,7 @@ void D3D12InitApp::Update() {
 	XMStoreFloat4x4(&mView, v);
 	//构建世界矩阵
 	XMMATRIX w = XMLoadFloat4x4(&mWorld);
-	//构建投影矩阵
+
 	XMMATRIX p = XMLoadFloat4x4(&mProj);
 	//矩阵计算
 	XMMATRIX WVP_Matrix = w * v * p;
