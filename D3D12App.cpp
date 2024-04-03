@@ -344,7 +344,7 @@ void D3D12App::FlushCmdQueue() {
 	if (fence->GetCompletedValue() < mCurrentFence) {//如果小于，说明GPU没有处理完所有命令
 		HANDLE eventHandle = CreateEvent(nullptr, false, false, L"FenceSetDone");//创建事件
 		fence->SetEventOnCompletion(mCurrentFence, eventHandle);//当围栏达到mCurrentFence值（即执行到Signal（）指令修改了围栏值）时触发的eventHandle事件
-		WaitForSingleObject(eventHandle, INFINITE);//等待GPU命中围栏，激发事件（阻塞当前线程直到事件触发，注意此Enent需先设置再等待，
+		WaitForSingleObject(eventHandle, INFINITE);//等待GPU命中围栏，激发事件（阻塞当前线程直到事件触发，注意此Event需先设置再等待，
 																				//如果没有Set就Wait，就死锁了，Set永远不会调用，所以也就没线程可以唤醒这个线程）
 		CloseHandle(eventHandle);
 	}
