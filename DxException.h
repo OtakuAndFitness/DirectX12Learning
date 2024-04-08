@@ -75,13 +75,13 @@ struct SubmeshGeometry
 };
 
 struct MeshGeometry {
-	ComPtr<ID3DBlob> vertexBufferCPU = nullptr;
-	ComPtr<ID3DBlob> indexBufferCPU = nullptr;
+	ComPtr<ID3DBlob> VertexBufferCPU = nullptr;
+	ComPtr<ID3DBlob> IndexBufferCPU = nullptr;
 
-	ComPtr<ID3D12Resource> indexBufferGPU = nullptr;
-	ComPtr<ID3D12Resource> vertexBufferGPU = nullptr;
+	ComPtr<ID3D12Resource> IndexBufferGPU = nullptr;
+	ComPtr<ID3D12Resource> VertexBufferGPU = nullptr;
 
-	ComPtr<ID3D12Resource> vertexBufferUploader = nullptr;
+	ComPtr<ID3D12Resource> VertexBufferUploader = nullptr;
 	ComPtr<ID3D12Resource> IndexBufferUploader = nullptr;
 
 	unordered_map<string, SubmeshGeometry> DrawArgs;
@@ -89,12 +89,13 @@ struct MeshGeometry {
 	UINT VertexByteStride = 0;
 	UINT VertexBufferByteSize = 0;
 	UINT IndexBufferByteSize = 0;
+	DXGI_FORMAT IndexFormat = DXGI_FORMAT_R16_UINT;
 
 	UINT IndexCount = 0;
 
 	D3D12_INDEX_BUFFER_VIEW GetIbv()const {
 		D3D12_INDEX_BUFFER_VIEW ibv;
-		ibv.BufferLocation = indexBufferGPU->GetGPUVirtualAddress();
+		ibv.BufferLocation = IndexBufferGPU->GetGPUVirtualAddress();
 		ibv.Format = DXGI_FORMAT_R16_UINT;
 		ibv.SizeInBytes = IndexBufferByteSize;
 
@@ -103,7 +104,7 @@ struct MeshGeometry {
 
 	D3D12_VERTEX_BUFFER_VIEW GetVbv()const {
 		D3D12_VERTEX_BUFFER_VIEW vbv;
-		vbv.BufferLocation = vertexBufferGPU->GetGPUVirtualAddress();
+		vbv.BufferLocation = VertexBufferGPU->GetGPUVirtualAddress();
 		vbv.StrideInBytes = VertexByteStride;
 		vbv.SizeInBytes = VertexBufferByteSize;
 
