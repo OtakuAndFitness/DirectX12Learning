@@ -135,6 +135,7 @@
     <ClCompile Include="DxException.cpp" />
     <ClCompile Include="FrameResource.cpp" />
     <ClCompile Include="GamTimer.cpp" />
+    <ClCompile Include="LandAndWave.cpp" />
     <ClCompile Include="ProceduralGeometry.cpp" />
   </ItemGroup>
   <ItemGroup>
