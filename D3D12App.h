@@ -55,7 +55,7 @@ protected:
 	HINSTANCE mhAppInst = nullptr;
 	HWND mhMainWnd = 0;
 
-	GameTimer gt;
+	GameTimer mTimer;
 
 	ComPtr<ID3D12Device> d3dDevice;
 	ComPtr<IDXGIFactory4> dxgiFactory;

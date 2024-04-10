@@ -94,6 +94,9 @@ D3D12App::D3D12App(HINSTANCE hInstance) : mhAppInst(hInstance)
 
 D3D12App::~D3D12App()
 {
+	if (d3dDevice != nullptr) {
+		FlushCmdQueue();
+	}
 }
 
 bool D3D12App::Init(HINSTANCE hInstance, int nShowCmd) {
@@ -355,7 +358,7 @@ void D3D12App::CalculateFrameState() {
 	static float timeElapsed = 0.0f;//流逝的时间
 	frameCnt++;//每帧++，经过一秒后其即为FPS值
 
-	if (gt.TotalTime() - timeElapsed >= 1.0f) {//一旦>=1，说明刚好过一秒
+	if (mTimer.TotalTime() - timeElapsed >= 1.0f) {//一旦>=1，说明刚好过一秒
 		float fps = (float)frameCnt;//每秒多少帧
 		float mspf = 1000.0f / fps;//每帧多少毫秒
 
@@ -400,7 +403,7 @@ int D3D12App::Run() {
 	//定义消息结构体
 	MSG msg = { 0 };
 	//每次循环开始都要重置计时器
-	gt.Reset();
+	mTimer.Reset();
 
 	while (msg.message != WM_QUIT) {
 		//如果有窗口消息就进行处理
@@ -410,8 +413,8 @@ int D3D12App::Run() {
 
 		}
 		else {
-			gt.Tick();//计算每两帧间隔时间
-			if (!gt.IsStoped()) {//如果不是暂停状态，我们才运行游戏
+			mTimer.Tick();//计算每两帧间隔时间
+			if (!mTimer.IsStoped()) {//如果不是暂停状态，我们才运行游戏
 				CalculateFrameState();
 				//否则就执行动画和游戏逻辑
 				Update();

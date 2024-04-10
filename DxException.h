@@ -25,6 +25,7 @@
 
 using namespace std;
 using namespace Microsoft::WRL;
+using namespace DirectX;
 
 inline wstring AnsiToWString(const string& str) {
 	WCHAR buffer[512];
@@ -71,20 +72,20 @@ struct SubmeshGeometry
 	UINT StartIndexLocation = 0;
 	INT BaseVertexLocation = 0;
 
-	DirectX::BoundingBox Bounds;
+	BoundingBox Bounds;
 };
 
 struct MeshGeometry {
-	ComPtr<ID3DBlob> VertexBufferCPU = nullptr;
-	ComPtr<ID3DBlob> IndexBufferCPU = nullptr;
+	ComPtr<ID3DBlob> VertexBufferCPU = nullptr;//CPU系统内存上的顶点数据
+	ComPtr<ID3DBlob> IndexBufferCPU = nullptr;//CPU系统内存上的索引数据
 
-	ComPtr<ID3D12Resource> IndexBufferGPU = nullptr;
-	ComPtr<ID3D12Resource> VertexBufferGPU = nullptr;
+	ComPtr<ID3D12Resource> IndexBufferGPU = nullptr;//GPU默认堆中的索引缓冲区（最终的GPU索引缓冲区）
+	ComPtr<ID3D12Resource> VertexBufferGPU = nullptr;//GPU默认堆中的顶点缓冲区（最终的GPU顶点缓冲区）
 
-	ComPtr<ID3D12Resource> VertexBufferUploader = nullptr;
-	ComPtr<ID3D12Resource> IndexBufferUploader = nullptr;
+	ComPtr<ID3D12Resource> VertexBufferUploader = nullptr;//GPU上传堆中的顶点缓冲区
+	ComPtr<ID3D12Resource> IndexBufferUploader = nullptr;//GPU上传堆中的索引缓冲区
 
-	unordered_map<string, SubmeshGeometry> DrawArgs;
+	unordered_map<string, SubmeshGeometry> DrawArgs;//对应不同子物体绘制三参数的无序列表
 
 	UINT VertexByteStride = 0;
 	UINT VertexBufferByteSize = 0;
@@ -104,10 +105,16 @@ struct MeshGeometry {
 
 	D3D12_VERTEX_BUFFER_VIEW GetVbv()const {
 		D3D12_VERTEX_BUFFER_VIEW vbv;
-		vbv.BufferLocation = VertexBufferGPU->GetGPUVirtualAddress();
-		vbv.StrideInBytes = VertexByteStride;
-		vbv.SizeInBytes = VertexBufferByteSize;
+		vbv.BufferLocation = VertexBufferGPU->GetGPUVirtualAddress();//顶点缓冲区资源虚拟地址
+		vbv.StrideInBytes = VertexByteStride;//每个顶点元素所占用的字节数
+		vbv.SizeInBytes = VertexBufferByteSize;//顶点缓冲区大小（所有顶点数据大小）
 
 		return vbv;
+	}
+
+	//等上传堆资源传至默认堆后,释放上传堆里的内存
+	void DisposeUploaders() {
+		VertexBufferUploader = nullptr;
+		IndexBufferUploader = nullptr;
 	}
 };

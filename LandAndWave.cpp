@@ -1,10 +1,13 @@
 #include "D3D12App.h"
 #include "FrameResource.h"
+#include "Waves.h"
 
 const int frameResourceCount = 3;
 
 struct RenderItem {
 	RenderItem() = default;
+
+	MeshGeometry* geo = nullptr;
 
 	//该几何体的世界矩阵
 	XMFLOAT4X4 world = MathHelper::Identity4x4();
@@ -24,6 +27,12 @@ struct RenderItem {
 
 };
 
+enum class RenderLayer : int
+{
+	Opaque = 0,
+	Count
+};
+
 class LandAndWave : public D3D12App {
 public:
 	LandAndWave(HINSTANCE hInstance);
@@ -40,7 +49,7 @@ private:
 	void BuildPSOs();
 	void BuildShadersAndInputLayout();
 	void BuildRenderItem();
-	void DrawRenderItems();
+	void DrawRenderItems(vector<RenderItem*>& items);
 	void BuildFrameResource();
 	void OnKeyboardInput();
 	void UpdateCamera();
@@ -55,8 +64,10 @@ private:
 	virtual void OnMouseMove(WPARAM btnState, int x, int y)override;
 
 	float GetHillsHeight(float x, float z)const;
+	void UpdateWaves();
+
 private:
-	unique_ptr<MeshGeometry> mGeo = nullptr;
+	unordered_map<string, unique_ptr<MeshGeometry>> geometries;
 
 	ComPtr<ID3DBlob> mvsByteCode = nullptr;
 	ComPtr<ID3DBlob> mpsByteCode = nullptr;
@@ -75,13 +86,16 @@ private:
 	float mRadius = 50.0f;
 
 	vector<unique_ptr<RenderItem>> mAllRenderItems;
-	vector<RenderItem*> renderItems;
+	vector<RenderItem*> mRenderItemLayer[(int)RenderLayer::Count];
 
 	FrameResource* mCurrFrameResource = nullptr;
 	vector<unique_ptr<FrameResource>> mFrameResource;
 	int mCurrFrameResourceIndex = 0;
 
 	bool mIsWireframe = false;
+
+	unique_ptr<Waves> mWaves;
+	RenderItem* mWavesRenderItem = nullptr;
 
 };
 
@@ -126,9 +140,12 @@ bool LandAndWave::Init(HINSTANCE hInstance, int nShowCmd)
 
 	ThrowIfFailed(cmdList->Reset(cmdAllocator.Get(), nullptr));
 
+	mWaves = make_unique<Waves>(128, 128, 1.0f, 0.03f, 4.0f, 0.2f);
+
 	BuildRootSignature();
 	BuildShadersAndInputLayout();
 	BuildLandGeometry();
+	BuildWaveGeometryBuffers();
 	BuildRenderItem();
 	BuildFrameResource();
 	BuildPSOs();
@@ -187,24 +204,27 @@ void LandAndWave::BuildLandGeometry()
 	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
 	const UINT ibByteSize = (UINT)indices.size() * sizeof(uint16_t);
 
-	mGeo = make_unique<MeshGeometry>();
+	auto geo = make_unique<MeshGeometry>();
 
-	ThrowIfFailed(D3DCreateBlob(vbByteSize, &mGeo->VertexBufferCPU));//创建顶点数据内存空间
-	CopyMemory(mGeo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);//将顶点数据拷贝至顶点系统内存中
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));//创建顶点数据内存空间
+	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);//将顶点数据拷贝至顶点系统内存中
 
-	ThrowIfFailed(D3DCreateBlob(ibByteSize, &mGeo->IndexBufferCPU));//创建索引数据内存空间
-	CopyMemory(mGeo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);//将索引数据拷贝至索引系统内存中
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));//创建索引数据内存空间
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);//将索引数据拷贝至索引系统内存中
 
-	mGeo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(d3dDevice.Get(), cmdList.Get(), vertices.data(), vbByteSize, mGeo->VertexBufferUploader);
+	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(d3dDevice.Get(), cmdList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
 
-	mGeo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(d3dDevice.Get(), cmdList.Get(), indices.data(), ibByteSize, mGeo->IndexBufferUploader);
+	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(d3dDevice.Get(), cmdList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
 
-	mGeo->VertexByteStride = sizeof(Vertex);
-	mGeo->VertexBufferByteSize = vbByteSize;
-	mGeo->IndexFormat = DXGI_FORMAT_R16_UINT;
-	mGeo->IndexBufferByteSize = ibByteSize;
+	geo->VertexByteStride = sizeof(Vertex);
+	geo->VertexBufferByteSize = vbByteSize;
+	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
+	geo->IndexBufferByteSize = ibByteSize;
 
-	mGeo->DrawArgs["grid"] = gridSubMesh;
+	//将之前封装好的几何体的SubmeshGeometry对象赋值给无序映射表
+	geo->DrawArgs["grid"] = gridSubMesh;
+	//将“山川”的MeshGeometry装入总的几何体映射表
+	geometries["land"] = move(geo);
 }
 
 float LandAndWave::GetHillsHeight(float x, float z)const
@@ -214,6 +234,58 @@ float LandAndWave::GetHillsHeight(float x, float z)const
 
 void LandAndWave::BuildWaveGeometryBuffers()
 {
+	//初始化索引列表（每个三角形3个索引）
+	vector<uint16_t> indices(3 * mWaves->TriangleCount());
+	assert(mWaves->VertexCount() < 0x0000ffff);//顶点索引数大于65536则中止程序
+
+	//填充索引列表
+	int m = mWaves->RowCount();
+	int n = mWaves->ColumnCount();
+	int k = 0;
+	for (int i = 0; i < m-1; i++)
+	{
+		for (int j = 0; j < n - 1; j++) {
+			indices[k] = i * n + j;
+			indices[k + 1] = i * n + j + 1;
+			indices[k + 2] = (i + 1) * n + j;
+
+			indices[k + 3] = (i + 1) * n + j;
+			indices[k + 4] = i * n + j + 1;
+			indices[k + 5] = (i + 1) * n + j + 1;
+
+			k += 6; // next quad
+		}
+	}
+
+	//计算顶点和索引缓存大小
+	UINT vbByteSize = mWaves->VertexCount() * sizeof(Vertex);
+	UINT ibByteSize = (UINT)indices.size() * sizeof(uint16_t);
+
+	auto geo = make_unique<MeshGeometry>();
+
+	geo->VertexBufferCPU = nullptr;
+	geo->VertexBufferGPU = nullptr;
+
+	//创建索引的CPU系统内存
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	//将索引列表存入CPU系统内存
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+	//将索引数据通过上传堆传至默认堆
+	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(d3dDevice.Get(), cmdList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+	//赋值MeshGeomety中相关属性
+	geo->VertexByteStride = sizeof(Vertex);
+	geo->VertexBufferByteSize = vbByteSize;
+	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
+	geo->IndexBufferByteSize = ibByteSize;
+
+	SubmeshGeometry lakeSubMesh;
+	lakeSubMesh.IndexCount = (UINT)indices.size();
+	lakeSubMesh.BaseVertexLocation = 0;
+	lakeSubMesh.StartIndexLocation = 0;
+
+	//使用waves几何体
+	geo->DrawArgs["lake"] = lakeSubMesh;
+	geometries["lake"] = move(geo);
 }
 
 void LandAndWave::BuildRootSignature()
@@ -301,43 +373,55 @@ void LandAndWave::BuildRenderItem()
 	gridItem->world = MathHelper::Identity4x4();
 	gridItem->objCBIndex = 0;
 	gridItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	gridItem->indexCount = mGeo->DrawArgs["grid"].IndexCount;
-	gridItem->baseVertexLocation = mGeo->DrawArgs["grid"].BaseVertexLocation;
-	gridItem->startIndexLocation = mGeo->DrawArgs["grid"].StartIndexLocation;
-	mAllRenderItems.push_back(move(gridItem));
+	gridItem->geo = geometries["land"].get();
+	gridItem->indexCount = gridItem->geo->DrawArgs["grid"].IndexCount;
+	gridItem->baseVertexLocation = gridItem->geo->DrawArgs["grid"].BaseVertexLocation;
+	gridItem->startIndexLocation = gridItem->geo->DrawArgs["grid"].StartIndexLocation;
 
-	for (auto& e : mAllRenderItems)
-	{
-		renderItems.push_back(e.get());
-	}
+	mRenderItemLayer[(int)RenderLayer::Opaque].push_back(gridItem.get());
+
+	auto wavesItem = make_unique<RenderItem>();
+	wavesItem->world = MathHelper::Identity4x4();
+	wavesItem->objCBIndex = 1;
+	wavesItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	wavesItem->geo = geometries["lake"].get();
+	wavesItem->indexCount = wavesItem->geo->DrawArgs["lake"].IndexCount;
+	wavesItem->baseVertexLocation = wavesItem->geo->DrawArgs["lake"].BaseVertexLocation;
+	wavesItem->startIndexLocation = wavesItem->geo->DrawArgs["lake"].StartIndexLocation;
+	mWavesRenderItem = wavesItem.get();
+	mRenderItemLayer[(int)RenderLayer::Opaque].push_back(wavesItem.get());
+
+	
+	mAllRenderItems.push_back(move(wavesItem));
+	mAllRenderItems.push_back(move(gridItem));
 
 }
 
-void LandAndWave::DrawRenderItems()
+void LandAndWave::DrawRenderItems(vector<RenderItem*>& items)
 {
 	UINT objectCount = (UINT)mAllRenderItems.size();//物体总个数（包括实例）
 	UINT objConstSize = d3dUtil::CalcConstantBufferByteSize(sizeof(ObjectConstants));
 	UINT passConstSize = d3dUtil::CalcConstantBufferByteSize(sizeof(PassConstants));
 
-	for (size_t i = 0; i < renderItems.size(); i++)
+	for (size_t i = 0; i < items.size(); i++)
 	{
-		auto renderItem = renderItems[i];
+		auto ri = items[i];
 
-		cmdList->IASetVertexBuffers(0, 1, &mGeo->GetVbv());
-		cmdList->IASetIndexBuffer(&mGeo->GetIbv());
-		cmdList->IASetPrimitiveTopology(renderItem->primitiveType);
+		cmdList->IASetVertexBuffers(0, 1, &ri->geo->GetVbv());
+		cmdList->IASetIndexBuffer(&ri->geo->GetIbv());
+		cmdList->IASetPrimitiveTopology(ri->primitiveType);
 		
 		//设置根描述符,将根描述符与资源绑定
 		auto objCB = mCurrFrameResource->objCB->Resource();
 		auto objCBAddress = objCB->GetGPUVirtualAddress();
-		objCBAddress += renderItem->objCBIndex * objConstSize;
+		objCBAddress += ri->objCBIndex * objConstSize;
 		cmdList->SetGraphicsRootConstantBufferView(0, //寄存器槽号
 			objCBAddress);//子资源地址
 		//绘制顶点（通过索引缓冲区绘制）
-		cmdList->DrawIndexedInstanced(renderItem->indexCount, //每个实例要绘制的索引数
+		cmdList->DrawIndexedInstanced(ri->indexCount, //每个实例要绘制的索引数
 			1, //实例化个数
-			renderItem->startIndexLocation, //起始索引位置
-			renderItem->baseVertexLocation, //子物体起始索引在全局索引中的位置
+			ri->startIndexLocation, //起始索引位置
+			ri->baseVertexLocation, //子物体起始索引在全局索引中的位置
 			0);//实例化的高级技术，暂时设置为0
 	}
 }
@@ -348,8 +432,40 @@ void LandAndWave::BuildFrameResource()
 	{
 		mFrameResource.push_back(make_unique<FrameResource>(d3dDevice.Get(),
 			1, //passCount
-			(UINT)mAllRenderItems.size()));//objCount
+			(UINT)mAllRenderItems.size(),//objCount
+			mWaves->VertexCount()));
 	}
+}
+
+void LandAndWave::UpdateWaves() {
+	static float t_base = 0.0f;
+	if ((mTimer.TotalTime() - t_base) >= 0.25f) {
+		t_base += 0.25f;//0.25秒生成一个波浪
+		//随机生成横坐标
+		int i = MathHelper::Rand(4, mWaves->RowCount() - 5);
+		//随机生成纵坐标
+		int j = MathHelper::Rand(4, mWaves->ColumnCount() - 5);
+		//随机生成波的半径
+		float r = MathHelper::RandF(0.2f, 0.5f);
+		//使用波动方程函数生成波纹
+		mWaves->Disturb(i, j, r);
+	}
+
+	//每帧更新波浪模拟（即更新顶点坐标）
+	mWaves->Update(mTimer.DeltaTime());
+
+	//将更新的顶点坐标存入GPU上传堆中
+	auto currWavesVB = mCurrFrameResource->wavesVB.get();
+	for (int i = 0; i < mWaves->VertexCount(); i++)
+	{
+		Vertex v;
+		v.Pos = mWaves->Position(i);
+		v.Color = XMFLOAT4(Colors::Blue);
+
+		currWavesVB->CopyData(i, v);
+	}
+	//赋值湖泊的GPU上的顶点缓存
+	mWavesRenderItem->geo->VertexBufferGPU = currWavesVB->Resource();
 }
 
 void LandAndWave::Draw()
@@ -394,7 +510,7 @@ void LandAndWave::Draw()
 		passCB->GetGPUVirtualAddress());
 
 	//绘制顶点（通过索引缓冲区绘制）
-	DrawRenderItems();
+	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Opaque]);
 
 	//从渲染目标到呈现
 	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(swapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
@@ -491,6 +607,7 @@ void LandAndWave::Update()
 
 	UpdateObjectCBs();
 	UpdateMainPassCB();
+	UpdateWaves();
 
 }
 

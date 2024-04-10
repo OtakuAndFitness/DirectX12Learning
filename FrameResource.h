@@ -26,7 +26,7 @@ struct PassConstants {
 struct FrameResource
 {
 	public:
-		FrameResource(ID3D12Device* device, UINT passCount, UINT objCount);
+		FrameResource(ID3D12Device* device, UINT passCount, UINT objCount, UINT wavesVertCount);
 		FrameResource(const FrameResource& rhs) = delete;
 		FrameResource& operator = (const FrameResource& rhs) = delete;
 		~FrameResource();
@@ -35,6 +35,7 @@ struct FrameResource
 		//每帧都需要单独的资源缓冲区（此案例仅为2个常量缓冲区）
 		unique_ptr<UploadBuffer<ObjectConstants>> objCB = nullptr;
 		unique_ptr<UploadBuffer<PassConstants>> passCB = nullptr;
+		unique_ptr<UploadBuffer<Vertex>> wavesVB = nullptr;
 		UINT64 fenceCPU = 0;
 
 };

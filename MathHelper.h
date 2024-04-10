@@ -20,4 +20,21 @@ public:
     static T Clamp(const T& x, const T& low, const T& high) {
         return x < low ? low : (x > high ? high : x);
     }
+
+    // Returns random float in [0, 1).
+    static float RandF()
+    {
+        return (float)(rand()) / (float)RAND_MAX;
+    }
+
+    // Returns random float in [a, b).
+    static float RandF(float a, float b)
+    {
+        return a + RandF() * (b - a);
+    }
+
+    static int Rand(int a, int b)
+    {
+        return a + rand() % ((b - a) + 1);
+    }
 };
