@@ -35,12 +35,12 @@ float3 SchlickFresnel(float3 R0, float3 normal, float3 lightVector)
 float3 BlinnPhong(Material mat, float3 normal, float3 toEye, float3 lightVec, float3 lightStrength)
 {
     float m = (1.0f - mat.roughness) * 256.0f; //粗糙度因子里的m值
-    float halfVec = normalize(lightVec + toEye); //半角向量
-    float roughtnessFactor = (m + 8.0f) / 8.0f * pow(max(dot(normal, halfVec), 0.0f), m); //粗糙度因子
+    float3 halfVec = normalize(lightVec + toEye); //半角向量
+    float roughtnessFactor = (m + 8.0f) * pow(max(dot(normal, halfVec), 0.0f), m) / 8.0f; //粗糙度因子
     float3 fresnelFactor = SchlickFresnel(mat.fresnelR0, halfVec, lightVec); //fresnel因子
     
     float3 specAlbedo = fresnelFactor * roughtnessFactor; //镜面反射反照率=fresnel因子*粗糙度因子
-    specAlbedo = specAlbedo / (specAlbedo + 1); //将镜面反射反照率缩放到[0，1]
+    specAlbedo = specAlbedo / (specAlbedo + 1.0f); //将镜面反射反照率缩放到[0，1]
     
     float3 diff = lightStrength * (mat.diffuseAlbedo.rgb + specAlbedo); //漫反射+高光反射=入射光量*总的反照率
     return diff; //返回漫反射+高光反射

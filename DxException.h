@@ -27,6 +27,8 @@ using namespace std;
 using namespace Microsoft::WRL;
 using namespace DirectX;
 
+const int frameResourceCount = 3;
+
 inline wstring AnsiToWString(const string& str) {
 	WCHAR buffer[512];
 	MultiByteToWideChar(CP_ACP, 0, str.c_str(), -1, buffer, 512);
@@ -122,7 +124,7 @@ struct MeshGeometry {
 struct Material {
 	string name;
 	int matCBIndex = -1;//材质常量缓冲区中的索引
-	int numFramesDirty = 3;//已更新标志，表示材质已有变动，我们需要更新常量缓冲区了
+	int numFramesDirty = frameResourceCount;//已更新标志，表示材质已有变动，我们需要更新常量缓冲区了
 
 	XMFLOAT4 diffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };//材质反照率
 	XMFLOAT3 fresnelR0 = { 0.01f, 0.01f, 0.01f };//RF(0)值，即材质的反射属性

@@ -2,8 +2,6 @@
 #include "FrameResource.h"
 #include "Waves.h"
 
-const int frameResourceCount = 3;
-
 struct RenderItem {
 	RenderItem() = default;
 
@@ -431,10 +429,14 @@ void LandAndWave::BuildRenderItem()
 
 void LandAndWave::DrawRenderItems(vector<RenderItem*>& items)
 {
-	UINT objectCount = (UINT)mAllRenderItems.size();//物体总个数（包括实例）
+	//UINT objectCount = (UINT)mAllRenderItems.size();//物体总个数（包括实例）
 	UINT objConstSize = d3dUtil::CalcConstantBufferByteSize(sizeof(ObjectConstants));
-	UINT passConstSize = d3dUtil::CalcConstantBufferByteSize(sizeof(PassConstants));
+	//UINT passConstSize = d3dUtil::CalcConstantBufferByteSize(sizeof(PassConstants));
 	UINT matConstSize = d3dUtil::CalcConstantBufferByteSize(sizeof(MatConstants));
+
+	auto objCB = mCurrFrameResource->objCB->Resource();
+	auto matCB = mCurrFrameResource->matCB->Resource();
+
 
 	for (size_t i = 0; i < items.size(); i++)
 	{
@@ -445,17 +447,15 @@ void LandAndWave::DrawRenderItems(vector<RenderItem*>& items)
 		cmdList->IASetPrimitiveTopology(ri->primitiveType);
 		
 		//设置根描述符,将根描述符与资源绑定
-		auto objCB = mCurrFrameResource->objCB->Resource();
 		auto objCBAddress = objCB->GetGPUVirtualAddress();
+		auto matCBAddress = matCB->GetGPUVirtualAddress();
+		
 		objCBAddress += ri->objCBIndex * objConstSize;
+		matCBAddress += ri->mat->matCBIndex * matConstSize;
+		
 		cmdList->SetGraphicsRootConstantBufferView(0, //寄存器槽号
 			objCBAddress);//子资源地址
 		//绘制顶点（通过索引缓冲区绘制）
-		
-		//设置根描述符，将根描述符与matCB资源绑定
-		auto matCB = mCurrFrameResource->matCB->Resource();
-		auto matCBAddress = matCB->GetGPUVirtualAddress();
-		matCBAddress += ri->mat->matCBIndex * matConstSize;
 		cmdList->SetGraphicsRootConstantBufferView(1, matCBAddress);
 
 		cmdList->DrawIndexedInstanced(ri->indexCount, //每个实例要绘制的索引数
@@ -491,10 +491,10 @@ void LandAndWave::BuildMaterials()
 	//定义湖水的材质
 	auto lake = make_unique<Material>();
 	lake->name = "lake";
-	lake->matCBIndex = 0;
-	lake->diffuseAlbedo = XMFLOAT4(0.2f, 0.6f, 0.2f, 1.0f);//湖水的反照率（颜色）
-	lake->fresnelR0 = XMFLOAT3(0.01f, 0.01f, 0.01f);//湖水的R0（因为没有透明度和折射率，所以这里给0.1）
-	lake->roughness = 0.125f;//湖水的粗糙度（归一化后的）
+	lake->matCBIndex = 1;
+	lake->diffuseAlbedo = XMFLOAT4(0.0f, 0.2f, 0.6f, 1.0f);//湖水的反照率（颜色）
+	lake->fresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);//湖水的R0（因为没有透明度和折射率，所以这里给0.1）
+	lake->roughness = 0.0f;//湖水的粗糙度（归一化后的）
 
 	mMaterials["land"] = move(land);
 	mMaterials["lake"] = move(lake);
@@ -658,7 +658,7 @@ void LandAndWave::UpdateMainPassCB() {
 	PassConstants passConstants;
 	XMStoreFloat4x4(&passConstants.viewProj, XMMatrixTranspose(VP_Matrix));
 
-	passConstants.eyePosW = XMFLOAT3(mEyePos.x, mEyePos.y, mEyePos.z);
+	passConstants.eyePosW = mEyePos;
 
 	passConstants.ambientLight = { 0.25f,0.25f,0.35f,1.0f };
 	passConstants.lights[0].strength = { 1.0f,1.0f,0.9f };
@@ -666,14 +666,14 @@ void LandAndWave::UpdateMainPassCB() {
 	XMVECTOR sunDir = -MathHelper::SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
 	XMStoreFloat3(&passConstants.lights[0].direction, sunDir);
 
-	passConstants.lights[0].direction = { 0.0f,0.0f,0.0f };
-
 	auto currPassCB = mCurrFrameResource->passCB.get();
 	currPassCB->CopyData(0, passConstants);
 }
 
 void LandAndWave::UpdateMatCBs()
 {
+	auto currMaterialCB = mCurrFrameResource->matCB.get();
+
 	for (auto& e : mMaterials)
 	{
 		Material* mat = e.second.get();//获得键值对的值，即Material指针（智能指针转普通指针）
@@ -684,7 +684,7 @@ void LandAndWave::UpdateMatCBs()
 			matConstants.fresnelR0 = mat->fresnelR0;
 			matConstants.roughness = mat->roughness;
 			//将材质常量数据复制到常量缓冲区对应索引地址处
-			mCurrFrameResource->matCB->CopyData(mat->matCBIndex, matConstants);
+			currMaterialCB->CopyData(mat->matCBIndex, matConstants);
 			//更新下一个帧资源
 			mat->numFramesDirty--;
 		}
@@ -716,6 +716,7 @@ void LandAndWave::Update()
 	}
 
 	UpdateObjectCBs();
+	UpdateMatCBs();
 	UpdateMainPassCB();
 	UpdateWaves();
 
@@ -746,8 +747,8 @@ void LandAndWave::OnMouseMove(WPARAM btnState, int x, int y)
 		mPhi = MathHelper::Clamp(mPhi, 0.1f, 3.1416f - 0.1f);
 	}
 	else if ((btnState & MK_RBUTTON) != 0) {
-		float dx = 0.005f * static_cast<float>(x - mLastMousePos.x);
-		float dy = 0.005f * static_cast<float>(y - mLastMousePos.y);
+		float dx = 0.2f * static_cast<float>(x - mLastMousePos.x);
+		float dy = 0.2f * static_cast<float>(y - mLastMousePos.y);
 		mRadius += dx - dy;
 		mRadius = MathHelper::Clamp(mRadius, 5.0f, 150.0f);
 	}
