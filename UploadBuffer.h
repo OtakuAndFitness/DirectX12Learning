@@ -35,8 +35,8 @@ public :
         mMappedData = nullptr;//释放映射内存
     }
 
-    //UploadBuffer(const UploadBuffer& rhs) = delete;
-    //UploadBuffer& operator=(const UploadBuffer& rhs) = delete;
+    UploadBuffer(const UploadBuffer& rhs) = delete;
+    UploadBuffer& operator=(const UploadBuffer& rhs) = delete;
 
     ID3D12Resource* Resource()const
     {

@@ -69,7 +69,4 @@
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="Shaders\color.hlsl" />
-  </ItemGroup>
 </Project>

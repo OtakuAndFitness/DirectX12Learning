@@ -14,6 +14,8 @@
 class D3D12App {
 protected:
 	D3D12App(HINSTANCE hInstance);
+	D3D12App(const D3D12App& rhs) = delete;
+	D3D12App& operator=(const D3D12App& rhs) = delete;
 	virtual ~D3D12App();
 
 public:

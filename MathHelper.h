@@ -5,15 +5,24 @@
 
 class MathHelper {
 public:
-    static DirectX::XMFLOAT4X4 Identity4x4()
+    static XMFLOAT4X4 Identity4x4()
     {
-        static DirectX::XMFLOAT4X4 I(
+        static XMFLOAT4X4 I(
             1.0f, 0.0f, 0.0f, 0.0f,
             0.0f, 1.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f,
             0.0f, 0.0f, 0.0f, 1.0f);
 
         return I;
+    }
+
+    static XMVECTOR SphericalToCartesian(float radius, float theta, float phi)
+    {
+        return XMVectorSet(
+            radius * sinf(phi) * cosf(theta),
+            radius * cosf(phi),
+            radius * sinf(phi) * sinf(theta),
+            1.0f);
     }
 
     template<typename T>

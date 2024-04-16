@@ -118,3 +118,24 @@ struct MeshGeometry {
 		IndexBufferUploader = nullptr;
 	}
 };
+
+struct Material {
+	string name;
+	int matCBIndex = -1;//材质常量缓冲区中的索引
+	int numFramesDirty = 3;//已更新标志，表示材质已有变动，我们需要更新常量缓冲区了
+
+	XMFLOAT4 diffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };//材质反照率
+	XMFLOAT3 fresnelR0 = { 0.01f, 0.01f, 0.01f };//RF(0)值，即材质的反射属性
+	float roughness = 0.25f;//材质的粗糙度
+};
+
+#define MaxLights 16
+
+struct Light {
+	XMFLOAT3 strength = { 0.5f, 0.5f, 0.5f };
+	float falloffStart = 1.0f;
+	XMFLOAT3 direction = { 0.0f,-1.0f,0.0f };
+	float falloffEnd = 0.0f;
+	XMFLOAT3 position = { 0.0f, 0.0f, 0.0f };
+	float spotPower = 64.0f;
+};

@@ -8,8 +8,8 @@ using namespace DirectX;
 
 class ProceduralGeometry {
 public:
-	using uint16 = std::uint16_t;
-	using uint32 = std::uint32_t;
+	using uint16 = uint16_t;
+	using uint32 = uint32_t;
 
 	struct Vertex {
 		XMFLOAT3 Position;//物体坐标（物体空间）
