@@ -184,11 +184,11 @@ bool LandAndWave::Init(HINSTANCE hInstance, int nShowCmd)
 void LandAndWave::BuildDescriptorHeaps()
 {
 	//创建SRV堆
-	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc;
+	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	srvHeapDesc.NumDescriptors = 3;
-	srvHeapDesc.NodeMask = 0;
+	//srvHeapDesc.NodeMask = 0;
 	ThrowIfFailed(d3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrcDescriptorHeap)));
 
 	auto woodCrateTex = mTextures["box"]->resource;
@@ -203,18 +203,17 @@ void LandAndWave::BuildDescriptorHeaps()
 	srvDesc.Format = grassTex->GetDesc().Format;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = grassTex->GetDesc().MipLevels;
-	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+	srvDesc.Texture2D.MipLevels = -1;
 	d3dDevice->CreateShaderResourceView(grassTex.Get(), &srvDesc, handle);
 
 	handle.Offset(1, csuDescriptorSize);
+
 	srvDesc.Format = lakeTex->GetDesc().Format;
-	srvDesc.Texture2D.MipLevels = lakeTex->GetDesc().MipLevels;
 	d3dDevice->CreateShaderResourceView(lakeTex.Get(), &srvDesc, handle);
 
 	handle.Offset(1, csuDescriptorSize);
+
 	srvDesc.Format = woodCrateTex->GetDesc().Format;
-	srvDesc.Texture2D.MipLevels = woodCrateTex->GetDesc().MipLevels;
 	d3dDevice->CreateShaderResourceView(woodCrateTex.Get(), &srvDesc, handle);
 
 }
@@ -355,20 +354,20 @@ array<const CD3DX12_STATIC_SAMPLER_DESC, 6> LandAndWave::GetStaticSamplers()
 void LandAndWave::AnimateMaterials()
 {
 	auto matLake = mMaterials["lake"].get();
-	float& du = matLake->matTransform(3, 0);
-	float& dv = matLake->matTransform(3, 1);
+	float& tu = matLake->matTransform(3, 0);
+	float& tv = matLake->matTransform(3, 1);
 
-	du += 0.1f * mTimer.DeltaTime();
-	dv += 0.02f * mTimer.DeltaTime();
+	tu += 0.1f * mTimer.DeltaTime();
+	tv += 0.02f * mTimer.DeltaTime();
 	
-	if (du >= 1.0f) {
-		du = 0.0f;
+	if (tu >= 1.0f) {
+		tu -= 1.0f;
 	}
-	if (dv >= 1.0f) {
-		dv = 0.0f;
+	if (tv >= 1.0f) {
+		tv -= 1.0f;
 	}
-	matLake->matTransform(3, 0) = du;
-	matLake->matTransform(3, 1) = dv;
+	matLake->matTransform(3, 0) = tu;
+	matLake->matTransform(3, 1) = tv;
 
 	matLake->numFramesDirty = frameResourceCount;
 
@@ -448,7 +447,7 @@ void LandAndWave::BuildRootSignature()
 	//根签名由一组根参数构成
 	CD3DX12_ROOT_SIGNATURE_DESC rootSig(4, //根参数的数量
 		slotRootParameter, //根参数指针
-		staticSamplers.size(),
+		(UINT)staticSamplers.size(),
 		staticSamplers.data(),
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 	//用单个寄存器槽来创建一个根签名，该槽位指向一个仅含有单个常量缓冲区的描述符区域
@@ -505,8 +504,6 @@ void LandAndWave::BuildPSOs()
 
 void LandAndWave::BuildShadersAndInputLayout()
 {
-	HRESULT hr = S_OK;
-
 	mvsByteCode = d3dUtil::CompileShader(L"Shaders\\color.hlsl", nullptr, "VS", "vs_5_0");
 	mpsByteCode = d3dUtil::CompileShader(L"Shaders\\color.hlsl", nullptr, "PS", "ps_5_0");
 
@@ -524,6 +521,7 @@ void LandAndWave::BuildRenderItem()
 {
 	auto gridItem = make_unique<RenderItem>();
 	gridItem->world = MathHelper::Identity4x4();
+	XMStoreFloat4x4(&gridItem->texTransform, XMMatrixScaling(5.0f, 5.0f, 1.0f));
 	gridItem->objCBIndex = 0;
 	gridItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	gridItem->geo = mGeometries["land"].get();
@@ -531,11 +529,11 @@ void LandAndWave::BuildRenderItem()
 	gridItem->indexCount = gridItem->geo->DrawArgs["grid"].IndexCount;
 	gridItem->baseVertexLocation = gridItem->geo->DrawArgs["grid"].BaseVertexLocation;
 	gridItem->startIndexLocation = gridItem->geo->DrawArgs["grid"].StartIndexLocation;
-	XMStoreFloat4x4(&gridItem->texTransform, XMMatrixScaling(7.0f, 7.0f, 1.0f));
 	mRenderItemLayer[(int)RenderLayer::Opaque].push_back(gridItem.get());
 
 	auto wavesItem = make_unique<RenderItem>();
 	wavesItem->world = MathHelper::Identity4x4();
+	XMStoreFloat4x4(&wavesItem->texTransform, XMMatrixScaling(5.0f, 5.0f, 1.0f));
 	wavesItem->objCBIndex = 1;
 	wavesItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	wavesItem->geo = mGeometries["lake"].get();
@@ -543,12 +541,11 @@ void LandAndWave::BuildRenderItem()
 	wavesItem->indexCount = wavesItem->geo->DrawArgs["lake"].IndexCount;
 	wavesItem->baseVertexLocation = wavesItem->geo->DrawArgs["lake"].BaseVertexLocation;
 	wavesItem->startIndexLocation = wavesItem->geo->DrawArgs["lake"].StartIndexLocation;
-	XMStoreFloat4x4(&wavesItem->texTransform, XMMatrixScaling(7.0f, 7.0f, 1.0f));
 	mWavesRenderItem = wavesItem.get();
 	mRenderItemLayer[(int)RenderLayer::Opaque].push_back(wavesItem.get());
 
 	auto boxItem = make_unique<RenderItem>();
-	XMStoreFloat4x4(&boxItem->world, XMMatrixTranslation(0.0f, 4.0f, -7.0f));
+	XMStoreFloat4x4(&boxItem->world, XMMatrixTranslation(3.0f, 2.0f, -9.0f));
 	boxItem->objCBIndex = 2;
 	boxItem->mat = mMaterials["box"].get();
 	boxItem->geo = mGeometries["box"].get();
@@ -583,6 +580,9 @@ void LandAndWave::DrawRenderItems(vector<RenderItem*>& items)
 		cmdList->IASetIndexBuffer(&ri->geo->GetIbv());
 		cmdList->IASetPrimitiveTopology(ri->primitiveType);
 		
+		CD3DX12_GPU_DESCRIPTOR_HANDLE texHandle(mSrcDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+		texHandle.Offset(ri->mat->diffuseSrvHeapIndex, csuDescriptorSize);
+
 		//设置根描述符,将根描述符与资源绑定
 		auto objCBAddress = objCB->GetGPUVirtualAddress();
 		auto matCBAddress = matCB->GetGPUVirtualAddress();
@@ -590,14 +590,11 @@ void LandAndWave::DrawRenderItems(vector<RenderItem*>& items)
 		objCBAddress += ri->objCBIndex * objConstSize;
 		matCBAddress += ri->mat->matCBIndex * matConstSize;
 		
+		cmdList->SetGraphicsRootDescriptorTable(0, texHandle);
 		cmdList->SetGraphicsRootConstantBufferView(1, //寄存器槽号
 			objCBAddress);//子资源地址
 		//绘制顶点（通过索引缓冲区绘制）
 		cmdList->SetGraphicsRootConstantBufferView(3, matCBAddress);
-
-		CD3DX12_GPU_DESCRIPTOR_HANDLE texHandle(mSrcDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-		texHandle.Offset(ri->mat->diffuseSrvHeapIndex, csuDescriptorSize);
-		cmdList->SetGraphicsRootDescriptorTable(0, texHandle);
 
 		cmdList->DrawIndexedInstanced(ri->indexCount, //每个实例要绘制的索引数
 			1, //实例化个数
@@ -645,7 +642,7 @@ void LandAndWave::BuildMaterials()
 	box->diffuseSrvHeapIndex = 2;
 	box->diffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	box->fresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
-	box->roughness = 0.8f;
+	box->roughness = 0.25f;
 
 	mMaterials["land"] = move(land);
 	mMaterials["lake"] = move(lake);

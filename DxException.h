@@ -22,7 +22,6 @@
 #include <comdef.h>
 #include "d3dx12.h"
 #include "DDSTextureLoader.h"
-#include "MathHelper.h"
 
 using namespace std;
 using namespace Microsoft::WRL;
@@ -134,7 +133,11 @@ struct Material {
 	XMFLOAT3 fresnelR0 = { 0.01f, 0.01f, 0.01f };//RF(0)值，即材质的反射属性
 	float roughness = 0.25f;//材质的粗糙度
 	
-	XMFLOAT4X4 matTransform = MathHelper::Identity4x4();
+	XMFLOAT4X4 matTransform = XMFLOAT4X4(
+		1.0f, 0.0f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f);
 };
 
 #define MaxLights 16

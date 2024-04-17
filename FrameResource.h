@@ -3,6 +3,7 @@
 #include "DxException.h"
 #include "UploadBuffer.h"
 #include "ProceduralGeometry.h"
+#include "MathHelper.h"
 
 //定义顶点结构体
 struct Vertex
