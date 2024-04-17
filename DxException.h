@@ -29,6 +29,12 @@ using namespace DirectX;
 
 const int frameResourceCount = 3;
 
+const XMFLOAT4X4 IdentityMatrix(
+	1.0f, 0.0f, 0.0f, 0.0f,
+	0.0f, 1.0f, 0.0f, 0.0f,
+	0.0f, 0.0f, 1.0f, 0.0f,
+	0.0f, 0.0f, 0.0f, 1.0f);
+
 inline wstring AnsiToWString(const string& str) {
 	WCHAR buffer[512];
 	MultiByteToWideChar(CP_ACP, 0, str.c_str(), -1, buffer, 512);
@@ -133,11 +139,7 @@ struct Material {
 	XMFLOAT3 fresnelR0 = { 0.01f, 0.01f, 0.01f };//RF(0)值，即材质的反射属性
 	float roughness = 0.25f;//材质的粗糙度
 	
-	XMFLOAT4X4 matTransform = XMFLOAT4X4(
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f);
+	XMFLOAT4X4 matTransform = IdentityMatrix;
 };
 
 #define MaxLights 16

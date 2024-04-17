@@ -1,6 +1,5 @@
 #pragma once
 
-#include "DxException.h"
 #include "UploadBuffer.h"
 #include "ProceduralGeometry.h"
 #include "MathHelper.h"
