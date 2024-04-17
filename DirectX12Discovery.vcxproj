@@ -132,6 +132,7 @@
   <ItemGroup>
     <ClCompile Include="D3D12App.cpp" />
     <ClCompile Include="D3D12InitApp.cpp" />
+    <ClCompile Include="DDSTextureLoader.cpp" />
     <ClCompile Include="DxException.cpp" />
     <ClCompile Include="FrameResource.cpp" />
     <ClCompile Include="GamTimer.cpp" />
@@ -142,6 +143,7 @@
   <ItemGroup>
     <ClInclude Include="D3D12App.h" />
     <ClInclude Include="d3dx12.h" />
+    <ClInclude Include="DDSTextureLoader.h" />
     <ClInclude Include="DxException.h" />
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="GameTimer.h" />

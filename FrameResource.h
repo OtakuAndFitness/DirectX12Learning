@@ -1,7 +1,6 @@
 #pragma once
 
 #include "DxException.h"
-#include "MathHelper.h"
 #include "UploadBuffer.h"
 #include "ProceduralGeometry.h"
 
@@ -19,6 +18,8 @@ struct ObjectConstants
 {
 	//初始化物体空间变换到裁剪空间矩阵，Identity4x4()是单位矩阵
 	XMFLOAT4X4 world = MathHelper::Identity4x4();
+	XMFLOAT4X4 texTransform = MathHelper::Identity4x4();
+
 };
 
 struct PassConstants {
@@ -34,6 +35,7 @@ struct MatConstants {
 	XMFLOAT4 diffuseAlbedo = { 1.0f,1.0f,1.0f,1.0f };
 	XMFLOAT3 fresnelR0 = { 0.01f,0.01f, 0.01f };
 	float roughness = 0.25f;
+	XMFLOAT4X4 matTransform = MathHelper::Identity4x4();
 };
 
 struct FrameResource

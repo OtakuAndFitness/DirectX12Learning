@@ -37,7 +37,10 @@
       <Filter>资源文件</Filter>
     </ClCompile>
     <ClCompile Include="Waves.cpp">
-      <Filter>源文件</Filter>
+      <Filter>资源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DDSTextureLoader.cpp">
+      <Filter>资源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -66,6 +69,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="Waves.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DDSTextureLoader.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
