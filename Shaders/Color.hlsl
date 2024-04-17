@@ -30,7 +30,7 @@ cbuffer cbPerObject : register(b0)
     float4x4 gTexTransform; //UV顶点变换矩阵
 };
 
-cbuffer cbMaterial : register(b1)
+cbuffer cbMaterial : register(b2)
 {
     float4 gDiffuseAlbedo; //材质反照率
     float3 gFresnelR0; //RF(0)值，即材质的反射属性
@@ -38,7 +38,7 @@ cbuffer cbMaterial : register(b1)
     float4x4 gMatTransform; //UV动画变换矩阵
 };
 
-cbuffer cbPass : register(b2)
+cbuffer cbPass : register(b1)
 {
     float4x4 gViewProj;
     float3 gEyePosW;
@@ -90,10 +90,10 @@ float4 PS(VertexOut pin) : SV_Target
     float3 worldNormal = normalize(pin.NormalW);
     float3 worldView = normalize(gEyePosW - pin.PosW);
     
-    Material mat = { gDiffuseAlbedo, gFresnelR0, gRoughness };
+    Material mat = { diffuseAlbedo, gFresnelR0, gRoughness };
     float3 shadowFactor = 1.0f;
     float4 directLight = ComputeLighting(gLights, mat, pin.PosW, worldNormal, worldView, shadowFactor);
-    float4 ambient = gAmbientLight * gDiffuseAlbedo;
+    float4 ambient = gAmbientLight * diffuseAlbedo;
     float4 finalCol = ambient + directLight;
     finalCol.a = diffuseAlbedo.a;
     return finalCol;
