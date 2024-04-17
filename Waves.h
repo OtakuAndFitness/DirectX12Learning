@@ -3,6 +3,8 @@
 #include <vector>
 #include <DirectXMath.h>
 
+using namespace DirectX;
+
 class Waves
 {
 public:
@@ -19,13 +21,13 @@ public:
     float Depth()const;
 
     // 返回计算后的网格顶点坐标
-    const DirectX::XMFLOAT3& Position(int i)const { return mCurrSolution[i]; }
+    const XMFLOAT3& Position(int i)const { return mCurrSolution[i]; }
 
     // 返回计算后的网格顶点法线
-    const DirectX::XMFLOAT3& Normal(int i)const { return mNormals[i]; }
+    const XMFLOAT3& Normal(int i)const { return mNormals[i]; }
 
     // 返回计算后的网格顶点切线
-    const DirectX::XMFLOAT3& TangentX(int i)const { return mTangentX[i]; }
+    const XMFLOAT3& TangentX(int i)const { return mTangentX[i]; }
 
     void Update(float dt);
     void Disturb(int i, int j, float magnitude);
@@ -45,8 +47,8 @@ private:
     float mTimeStep = 0.0f;
     float mSpatialStep = 0.0f;
 
-    std::vector<DirectX::XMFLOAT3> mPrevSolution;
-    std::vector<DirectX::XMFLOAT3> mCurrSolution;
-    std::vector<DirectX::XMFLOAT3> mNormals;
-    std::vector<DirectX::XMFLOAT3> mTangentX;
+    std::vector<XMFLOAT3> mPrevSolution;
+    std::vector<XMFLOAT3> mCurrSolution;
+    std::vector<XMFLOAT3> mNormals;
+    std::vector<XMFLOAT3> mTangentX;
 };

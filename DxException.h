@@ -22,7 +22,6 @@
 #include <comdef.h>
 #include "d3dx12.h"
 
-
 using namespace std;
 using namespace Microsoft::WRL;
 using namespace DirectX;
@@ -78,6 +77,8 @@ struct SubmeshGeometry
 };
 
 struct MeshGeometry {
+	string Name;
+
 	ComPtr<ID3DBlob> VertexBufferCPU = nullptr;//CPU系统内存上的顶点数据
 	ComPtr<ID3DBlob> IndexBufferCPU = nullptr;//CPU系统内存上的索引数据
 

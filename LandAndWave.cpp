@@ -51,6 +51,7 @@ private:
 	void DrawRenderItems(vector<RenderItem*>& items);
 	void BuildFrameResource();
 	void BuildMaterials();
+	void BuildBoxGeometry();
 
 	void OnKeyboardInput();
 	void UpdateCamera();
@@ -70,7 +71,7 @@ private:
 	void UpdateWaves();
 
 private:
-	unordered_map<string, unique_ptr<MeshGeometry>> geometries;
+	unordered_map<string, unique_ptr<MeshGeometry>> mGeometries;
 
 	ComPtr<ID3DBlob> mvsByteCode = nullptr;
 	ComPtr<ID3DBlob> mpsByteCode = nullptr;
@@ -154,6 +155,7 @@ bool LandAndWave::Init(HINSTANCE hInstance, int nShowCmd)
 	BuildShadersAndInputLayout();
 	BuildLandGeometry();
 	BuildWaveGeometryBuffers();
+	BuildBoxGeometry();
 	BuildMaterials();
 	BuildRenderItem();
 	BuildFrameResource();
@@ -217,6 +219,7 @@ void LandAndWave::BuildLandGeometry()
 	const UINT ibByteSize = (UINT)indices.size() * sizeof(uint16_t);
 
 	auto geo = make_unique<MeshGeometry>();
+	geo->Name = "land";
 
 	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));//创建顶点数据内存空间
 	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);//将顶点数据拷贝至顶点系统内存中
@@ -236,7 +239,7 @@ void LandAndWave::BuildLandGeometry()
 	//将之前封装好的几何体的SubmeshGeometry对象赋值给无序映射表
 	geo->DrawArgs["grid"] = gridSubMesh;
 	//将“山川”的MeshGeometry装入总的几何体映射表
-	geometries["land"] = move(geo);
+	mGeometries["land"] = move(geo);
 }
 
 float LandAndWave::GetHillsHeight(float x, float z)const
@@ -288,6 +291,7 @@ void LandAndWave::BuildWaveGeometryBuffers()
 	UINT ibByteSize = (UINT)indices.size() * sizeof(uint16_t);
 
 	auto geo = make_unique<MeshGeometry>();
+	geo->Name = "lake";
 
 	geo->VertexBufferCPU = nullptr;
 	geo->VertexBufferGPU = nullptr;
@@ -311,7 +315,7 @@ void LandAndWave::BuildWaveGeometryBuffers()
 
 	//使用waves几何体
 	geo->DrawArgs["lake"] = lakeSubMesh;
-	geometries["lake"] = move(geo);
+	mGeometries["lake"] = move(geo);
 }
 
 void LandAndWave::BuildRootSignature()
@@ -401,7 +405,7 @@ void LandAndWave::BuildRenderItem()
 	gridItem->world = MathHelper::Identity4x4();
 	gridItem->objCBIndex = 0;
 	gridItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	gridItem->geo = geometries["land"].get();
+	gridItem->geo = mGeometries["land"].get();
 	gridItem->mat = mMaterials["land"].get();
 	gridItem->indexCount = gridItem->geo->DrawArgs["grid"].IndexCount;
 	gridItem->baseVertexLocation = gridItem->geo->DrawArgs["grid"].BaseVertexLocation;
@@ -413,7 +417,7 @@ void LandAndWave::BuildRenderItem()
 	wavesItem->world = MathHelper::Identity4x4();
 	wavesItem->objCBIndex = 1;
 	wavesItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	wavesItem->geo = geometries["lake"].get();
+	wavesItem->geo = mGeometries["lake"].get();
 	wavesItem->mat = mMaterials["lake"].get();
 	wavesItem->indexCount = wavesItem->geo->DrawArgs["lake"].IndexCount;
 	wavesItem->baseVertexLocation = wavesItem->geo->DrawArgs["lake"].BaseVertexLocation;
@@ -421,10 +425,20 @@ void LandAndWave::BuildRenderItem()
 	mWavesRenderItem = wavesItem.get();
 	mRenderItemLayer[(int)RenderLayer::Opaque].push_back(wavesItem.get());
 
-	
+	auto boxItem = make_unique<RenderItem>();
+	XMStoreFloat4x4(&boxItem->world, XMMatrixTranslation(0.0f, 4.0f, -7.0f));
+	boxItem->objCBIndex = 2;
+	boxItem->mat = mMaterials["box"].get();
+	boxItem->geo = mGeometries["box"].get();
+	boxItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	boxItem->indexCount = boxItem->geo->DrawArgs["box"].IndexCount;
+	boxItem->baseVertexLocation = boxItem->geo->DrawArgs["box"].BaseVertexLocation;
+	boxItem->startIndexLocation = boxItem->geo->DrawArgs["box"].StartIndexLocation;
+	mRenderItemLayer[(int)RenderLayer::Opaque].push_back(boxItem.get());
+
 	mAllRenderItems.push_back(move(wavesItem));
 	mAllRenderItems.push_back(move(gridItem));
-
+	mAllRenderItems.push_back(move(boxItem));
 }
 
 void LandAndWave::DrawRenderItems(vector<RenderItem*>& items)
@@ -496,8 +510,61 @@ void LandAndWave::BuildMaterials()
 	lake->fresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);//湖水的R0（因为没有透明度和折射率，所以这里给0.1）
 	lake->roughness = 0.0f;//湖水的粗糙度（归一化后的）
 
+	auto box = make_unique<Material>();
+	box->name = "wood";
+	box->matCBIndex = 2;
+	box->diffuseAlbedo = XMFLOAT4(0.8f, 0.6f, 0.25f, 1.0f);
+	box->fresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
+	box->roughness = 0.8f;
+
 	mMaterials["land"] = move(land);
 	mMaterials["lake"] = move(lake);
+	mMaterials["box"] = move(box);
+}
+
+void LandAndWave::BuildBoxGeometry()
+{
+	ProceduralGeometry boxGeo;
+	ProceduralGeometry::MeshData box = boxGeo.CreateBox(8.0f, 8.0f, 8.0f, 3);
+
+	size_t verticesCount = box.Vertices.size();
+	vector<Vertex> vertices(verticesCount);
+	for (size_t i = 0; i < verticesCount; i++)
+	{
+		vertices[i].Pos = box.Vertices[i].Position;
+		vertices[i].Normal = box.Vertices[i].Normal;
+		vertices[i].TexC = box.Vertices[i].TexC;
+	}
+
+	vector<uint16_t> indices = box.GetIndices16();
+
+	const UINT vbByteSize = (UINT)verticesCount * sizeof(Vertex);
+
+	const UINT ibByteSize = (UINT)indices.size() * sizeof(uint16_t);
+
+	SubmeshGeometry submesh;
+	submesh.BaseVertexLocation = 0;
+	submesh.StartIndexLocation = 0;
+	submesh.IndexCount = (UINT)indices.size();
+
+	auto geo = make_unique<MeshGeometry>();
+	geo->Name = "Box";
+	geo->VertexByteStride = sizeof(Vertex);
+	geo->VertexBufferByteSize = vbByteSize;
+	geo->IndexBufferByteSize = ibByteSize;
+	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
+	geo->DrawArgs["box"] = submesh;
+
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->IndexBufferCPU));
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+
+	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(d3dDevice.Get(), cmdList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
+	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(d3dDevice.Get(), cmdList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+
+	mGeometries["box"] = move(geo);
 }
 
 void LandAndWave::UpdateWaves() {
