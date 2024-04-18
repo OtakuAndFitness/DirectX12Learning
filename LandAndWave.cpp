@@ -31,6 +31,8 @@ struct RenderItem {
 enum class RenderLayer : int
 {
 	Opaque = 0,
+	Transparent = 1,
+	AlphaTest = 2,
 	Count
 };
 
@@ -79,8 +81,6 @@ private:
 private:
 	unordered_map<string, unique_ptr<MeshGeometry>> mGeometries;
 
-	ComPtr<ID3DBlob> mvsByteCode = nullptr;
-	ComPtr<ID3DBlob> mpsByteCode = nullptr;
 	vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
 	
 	unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOs;
@@ -102,12 +102,13 @@ private:
 
 	vector<unique_ptr<RenderItem>> mAllRenderItems;
 	vector<RenderItem*> mRenderItemLayer[(int)RenderLayer::Count];
+	unordered_map<string, ComPtr<ID3DBlob>> shaders;
 
 	FrameResource* mCurrFrameResource = nullptr;
 	vector<unique_ptr<FrameResource>> mFrameResource;
 	int mCurrFrameResourceIndex = 0;
 
-	bool mIsWireframe = false;
+	//bool mIsWireframe = false;
 
 	unique_ptr<Waves> mWaves;
 	RenderItem* mWavesRenderItem = nullptr;
@@ -318,35 +319,35 @@ array<const CD3DX12_STATIC_SAMPLER_DESC, 6> LandAndWave::GetStaticSamplers()
 		D3D12_TEXTURE_ADDRESS_MODE_WRAP,//V方向上的寻址模式为WRAP（重复寻址模式）
 		D3D12_TEXTURE_ADDRESS_MODE_WRAP);//W方向上的寻址模式为WRAP（重复寻址模式）
 
-	CD3DX12_STATIC_SAMPLER_DESC pointClamp(1,//着色器寄存器
-		D3D12_FILTER_MIN_MAG_MIP_POINT,//过滤器类型为POINT(常量插值)
-		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,//U方向上的寻址模式为WRAP（重复寻址模式）
-		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,//V方向上的寻址模式为WRAP（重复寻址模式）
-		D3D12_TEXTURE_ADDRESS_MODE_CLAMP);//W方向上的寻址模式为WRAP（重复寻址模式）
+	CD3DX12_STATIC_SAMPLER_DESC pointClamp(1,
+		D3D12_FILTER_MIN_MAG_MIP_POINT,
+		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+		D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
 
-	CD3DX12_STATIC_SAMPLER_DESC linearWrap(2,//着色器寄存器
-		D3D12_FILTER_MIN_MAG_MIP_LINEAR,//过滤器类型为POINT(常量插值)
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP,//U方向上的寻址模式为WRAP（重复寻址模式）
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP,//V方向上的寻址模式为WRAP（重复寻址模式）
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP);//W方向上的寻址模式为WRAP（重复寻址模式）
+	CD3DX12_STATIC_SAMPLER_DESC linearWrap(2,
+		D3D12_FILTER_MIN_MAG_MIP_LINEAR,
+		D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+		D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+		D3D12_TEXTURE_ADDRESS_MODE_WRAP);
 
-	CD3DX12_STATIC_SAMPLER_DESC linearClamp(3,//着色器寄存器
-		D3D12_FILTER_MIN_MAG_MIP_LINEAR,//过滤器类型为POINT(常量插值)
-		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,//U方向上的寻址模式为WRAP（重复寻址模式）
-		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,//V方向上的寻址模式为WRAP（重复寻址模式）
-		D3D12_TEXTURE_ADDRESS_MODE_CLAMP);//W方向上的寻址模式为WRAP（重复寻址模式）
+	CD3DX12_STATIC_SAMPLER_DESC linearClamp(3,
+		D3D12_FILTER_MIN_MAG_MIP_LINEAR,
+		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+		D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
 
-	CD3DX12_STATIC_SAMPLER_DESC anisotropicWarp(4,//着色器寄存器
-		D3D12_FILTER_ANISOTROPIC,//过滤器类型为POINT(常量插值)
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP,//U方向上的寻址模式为WRAP（重复寻址模式）
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP,//V方向上的寻址模式为WRAP（重复寻址模式）
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP);//W方向上的寻址模式为WRAP（重复寻址模式）
+	CD3DX12_STATIC_SAMPLER_DESC anisotropicWarp(4,
+		D3D12_FILTER_ANISOTROPIC,
+		D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+		D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+		D3D12_TEXTURE_ADDRESS_MODE_WRAP);
 
-	CD3DX12_STATIC_SAMPLER_DESC anisotropicClamp(5,//着色器寄存器
-		D3D12_FILTER_ANISOTROPIC,//过滤器类型为POINT(常量插值)
-		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,//U方向上的寻址模式为WRAP（重复寻址模式）
-		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,//V方向上的寻址模式为WRAP（重复寻址模式）
-		D3D12_TEXTURE_ADDRESS_MODE_CLAMP);//W方向上的寻址模式为WRAP（重复寻址模式）
+	CD3DX12_STATIC_SAMPLER_DESC anisotropicClamp(5,
+		D3D12_FILTER_ANISOTROPIC,
+		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+		D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
 
 	return { pointWrap, pointClamp, linearWrap, linearClamp, anisotropicWarp, anisotropicClamp };
 }
@@ -471,41 +472,82 @@ void LandAndWave::BuildRootSignature()
 
 void LandAndWave::BuildPSOs()
 {
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc;
-	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	psoDesc.InputLayout = { mInputLayout.data(), (UINT)mInputLayout.size() };
-	psoDesc.pRootSignature = mRootSignature.Get();
-	psoDesc.VS =
+	//不透明物体的PSO（不需要混合）
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC opaqueDesc;
+	ZeroMemory(&opaqueDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+	opaqueDesc.InputLayout = { mInputLayout.data(), (UINT)mInputLayout.size() };
+	opaqueDesc.pRootSignature = mRootSignature.Get();
+	opaqueDesc.VS =
 	{
-		reinterpret_cast<BYTE*>(mvsByteCode->GetBufferPointer()),
-		mvsByteCode->GetBufferSize()
+		reinterpret_cast<BYTE*>(shaders["standardVS"]->GetBufferPointer()),
+		shaders["standardVS"]->GetBufferSize()
 	};
-	psoDesc.PS =
+	opaqueDesc.PS =
 	{
-		reinterpret_cast<BYTE*>(mpsByteCode->GetBufferPointer()),
-		mpsByteCode->GetBufferSize()
+		reinterpret_cast<BYTE*>(shaders["opaquePS"]->GetBufferPointer()),
+		shaders["opaquePS"]->GetBufferSize()
 	};
-	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-	psoDesc.SampleMask = UINT_MAX;
-	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	psoDesc.NumRenderTargets = 1;
-	psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-	psoDesc.SampleDesc.Count = 1;
-	psoDesc.SampleDesc.Quality = 0;
-	psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	ThrowIfFailed(d3dDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSOs["opaque"])));
+	opaqueDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	opaqueDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	opaqueDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	opaqueDesc.SampleMask = UINT_MAX;
+	opaqueDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	opaqueDesc.NumRenderTargets = 1;
+	opaqueDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	opaqueDesc.SampleDesc.Count = 1;
+	opaqueDesc.SampleDesc.Quality = 0;
+	opaqueDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	ThrowIfFailed(d3dDevice->CreateGraphicsPipelineState(&opaqueDesc, IID_PPV_ARGS(&mPSOs["opaque"])));
 
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC wireframeDesc = psoDesc;
-	wireframeDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
-	ThrowIfFailed(d3dDevice->CreateGraphicsPipelineState(&wireframeDesc, IID_PPV_ARGS(&mPSOs["opaque_wireframe"])));
+	//D3D12_GRAPHICS_PIPELINE_STATE_DESC wireframeDesc = opaqueDesc;
+	//wireframeDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+	//ThrowIfFailed(d3dDevice->CreateGraphicsPipelineState(&wireframeDesc, IID_PPV_ARGS(&mPSOs["opaque_wireframe"])));
+	
+	//AlphaTest物体的PSO（不需要混合）
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC alphaTestDesc = opaqueDesc;
+	alphaTestDesc.PS = {
+		reinterpret_cast<BYTE*>(shaders["alphaTestPS"]->GetBufferPointer()),
+		shaders["alphaTestPS"]->GetBufferSize()
+	};
+	alphaTestDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;//双面显示
+	ThrowIfFailed(d3dDevice->CreateGraphicsPipelineState(&alphaTestDesc, IID_PPV_ARGS(&mPSOs["alphaTest"])));
+
+	//半透明物体的PSO（需要混合）
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC transparentPsoDesc = opaqueDesc;
+	D3D12_RENDER_TARGET_BLEND_DESC transparencyBlendDesc;
+	transparencyBlendDesc.BlendEnable = true;//是否开启常规混合（默认值为false）
+	transparencyBlendDesc.LogicOpEnable = false;//是否开启逻辑混合(默认值为false)
+	transparencyBlendDesc.SrcBlend = D3D12_BLEND_SRC_ALPHA;//RGB混合中的源混合因子Fsrc（这里取源颜色的alpha通道值）
+	transparencyBlendDesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;//RGB混合中的目标混合因子Fdest（这里取1-alpha）
+	transparencyBlendDesc.BlendOp = D3D12_BLEND_OP_ADD;//RGB混合运算符(这里选择加法)
+	transparencyBlendDesc.SrcBlendAlpha = D3D12_BLEND_ONE;//alpha混合中的源混合因子Fsrc（取1）
+	transparencyBlendDesc.DestBlendAlpha = D3D12_BLEND_ZERO;//alpha混合中的目标混合因子Fsrc（取0）
+	transparencyBlendDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;//alpha混合运算符(这里选择加法)
+	transparencyBlendDesc.LogicOp = D3D12_LOGIC_OP_NOOP;//逻辑混合运算符(空操作，即不使用)
+	transparencyBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;//后台缓冲区写入遮罩（没有遮罩，即全部写入）
+
+	transparentPsoDesc.BlendState.RenderTarget[0] = transparencyBlendDesc; // 赋值RenderTarget第一个元素，即对每一个渲染目标执行相同操作
+
+	ThrowIfFailed(d3dDevice->CreateGraphicsPipelineState(&transparentPsoDesc, IID_PPV_ARGS(&mPSOs["transparent"])));
+
 }
 
 void LandAndWave::BuildShadersAndInputLayout()
 {
-	mvsByteCode = d3dUtil::CompileShader(L"Shaders\\color.hlsl", nullptr, "VS", "vs_5_0");
-	mpsByteCode = d3dUtil::CompileShader(L"Shaders\\color.hlsl", nullptr, "PS", "ps_5_0");
+	HRESULT hr = S_OK;
+
+	const D3D_SHADER_MACRO defines[] = {
+		NULL, NULL
+	};
+
+	const D3D_SHADER_MACRO alphaTestDefines[] = {
+		"ALPHA_TEST", "1",
+		NULL, NULL
+	};
+
+	shaders["standardVS"] = d3dUtil::CompileShader(L"Shaders\\color.hlsl", nullptr, "VS", "vs_5_0");
+	shaders["opaquePS"] = d3dUtil::CompileShader(L"Shaders\\color.hlsl", defines, "PS", "ps_5_0");
+	shaders["alphaTestPS"] = d3dUtil::CompileShader(L"Shaders\\color.hlsl", alphaTestDefines, "PS", "ps_5_0");
 
 	mInputLayout =
 	{
@@ -542,7 +584,7 @@ void LandAndWave::BuildRenderItem()
 	wavesItem->baseVertexLocation = wavesItem->geo->DrawArgs["lake"].BaseVertexLocation;
 	wavesItem->startIndexLocation = wavesItem->geo->DrawArgs["lake"].StartIndexLocation;
 	mWavesRenderItem = wavesItem.get();
-	mRenderItemLayer[(int)RenderLayer::Opaque].push_back(wavesItem.get());
+	mRenderItemLayer[(int)RenderLayer::Transparent].push_back(wavesItem.get());
 
 	auto boxItem = make_unique<RenderItem>();
 	XMStoreFloat4x4(&boxItem->world, XMMatrixTranslation(3.0f, 2.0f, -9.0f));
@@ -554,7 +596,7 @@ void LandAndWave::BuildRenderItem()
 	boxItem->baseVertexLocation = boxItem->geo->DrawArgs["box"].BaseVertexLocation;
 	boxItem->startIndexLocation = boxItem->geo->DrawArgs["box"].StartIndexLocation;
 	boxItem->texTransform= MathHelper::Identity4x4();
-	mRenderItemLayer[(int)RenderLayer::Opaque].push_back(boxItem.get());
+	mRenderItemLayer[(int)RenderLayer::AlphaTest].push_back(boxItem.get());
 
 	mAllRenderItems.push_back(move(wavesItem));
 	mAllRenderItems.push_back(move(gridItem));
@@ -632,7 +674,7 @@ void LandAndWave::BuildMaterials()
 	lake->name = "lake";
 	lake->matCBIndex = 1;
 	lake->diffuseSrvHeapIndex = 1;
-	lake->diffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);//湖水的反照率（颜色）
+	lake->diffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f);//湖水的反照率（颜色）
 	lake->fresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);//湖水的R0（因为没有透明度和折射率，所以这里给0.1）
 	lake->roughness = 0.0f;//湖水的粗糙度（归一化后的）
 
@@ -698,8 +740,8 @@ void LandAndWave::LoadTextures()
 {
 	//板条箱纹理
 	auto woodCrateTex = make_unique<Texture>();
-	woodCrateTex->name = "woodCrateTex";
-	woodCrateTex->fileName = L"Textures/WoodCrate01.dds";
+	woodCrateTex->name = "fenceTex";
+	woodCrateTex->fileName = L"Textures/WireFence.dds";
 	ThrowIfFailed(CreateDDSTextureFromFile12(d3dDevice.Get(), cmdList.Get(), woodCrateTex->fileName.c_str(), woodCrateTex->resource, woodCrateTex->uploadHeap));
 
 	//草地纹理
@@ -757,12 +799,12 @@ void LandAndWave::Draw()
 {
 	auto currCmdAllocator = mCurrFrameResource->cmdAllocator;
 	ThrowIfFailed(currCmdAllocator->Reset());//重复使用记录命令的相关内存
-	if (mIsWireframe) {
-		ThrowIfFailed(cmdList->Reset(currCmdAllocator.Get(), mPSOs["opaque_wireframe"].Get()));//复用命令列表及其内存
-	}
-	else {
+	//if (mIsWireframe) {
+		//ThrowIfFailed(cmdList->Reset(currCmdAllocator.Get(), mPSOs["opaque_wireframe"].Get()));//复用命令列表及其内存
+	//}
+	//else {
 		ThrowIfFailed(cmdList->Reset(currCmdAllocator.Get(), mPSOs["opaque"].Get()));//复用命令列表及其内存
-	}
+	//}
 
 	//设置视口和剪裁矩形
 	cmdList->RSSetViewports(1, &viewPort);
@@ -799,6 +841,10 @@ void LandAndWave::Draw()
 
 	//绘制顶点（通过索引缓冲区绘制）
 	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Opaque]);
+	cmdList->SetPipelineState(mPSOs["alphaTest"].Get());
+	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::AlphaTest]);
+	cmdList->SetPipelineState(mPSOs["transparent"].Get());
+	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Transparent]);
 
 	//从渲染目标到呈现
 	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(swapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
@@ -834,12 +880,12 @@ void LandAndWave::OnKeyboardInput() {
 	
 	mSunPhi = MathHelper::Clamp(mSunPhi, 0.1F, XM_PIDIV2);
 
-	if (GetAsyncKeyState('1') & 0x8000) {
+	/*if (GetAsyncKeyState('1') & 0x8000) {
 		mIsWireframe = true;
 	}
 	else {
 		mIsWireframe = false;
-	}
+	}*/
 }
 
 void LandAndWave::UpdateCamera() {
