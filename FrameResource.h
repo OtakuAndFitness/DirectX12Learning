@@ -29,6 +29,11 @@ struct PassConstants {
 	float totalTime = 0.0f;
 	XMFLOAT4 ambientLight = { 0.0f, 0.0f, 0.0f, 1.0f };
 	Light lights[MaxLights];
+
+	XMFLOAT4 fogColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+	float fogStart = 1.0f;//雾的起始距离
+	float fogRange = 1.0f;//雾的衰减范围
+	XMFLOAT2 pad2 = { 0.0f, 0.0f };//占位
 };
 
 struct MatConstants {

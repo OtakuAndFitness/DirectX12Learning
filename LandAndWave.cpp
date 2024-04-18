@@ -537,10 +537,12 @@ void LandAndWave::BuildShadersAndInputLayout()
 	HRESULT hr = S_OK;
 
 	const D3D_SHADER_MACRO defines[] = {
+		"FOG", "1",
 		NULL, NULL
 	};
 
 	const D3D_SHADER_MACRO alphaTestDefines[] = {
+		"FOG", "1",
 		"ALPHA_TEST", "1",
 		NULL, NULL
 	};
@@ -939,6 +941,9 @@ void LandAndWave::UpdateMainPassCB() {
 	passConstants.totalTime = mTimer.TotalTime();
 	XMVECTOR sunDir = -MathHelper::SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
 	XMStoreFloat3(&passConstants.lights[0].direction, sunDir);
+
+	passConstants.fogRange = 200.0f;
+	passConstants.fogStart = 2.0f;
 
 	auto currPassCB = mCurrFrameResource->passCB.get();
 	currPassCB->CopyData(0, passConstants);

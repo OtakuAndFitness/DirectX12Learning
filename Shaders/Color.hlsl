@@ -45,6 +45,11 @@ cbuffer cbPass : register(b1)
     float gTotalTime;
     float4 gAmbientLight;
     Light gLights[MaxLights];
+    
+    float4 gFogColor;
+    float gFogStart;
+    float gFogRange;
+    float2 pad2;
 };
 
 struct VertexIn
@@ -92,13 +97,22 @@ float4 PS(VertexOut pin) : SV_Target
 #endif
     
     float3 worldNormal = normalize(pin.NormalW);
-    float3 worldView = normalize(gEyePosW - pin.PosW);
+    //float3 worldView = normalize(gEyePosW - pin.PosW);
+    float3 worldPosToEye = gEyePosW - pin.PosW;
+    float distPosToEye = length(worldPosToEye);
+    float3 worldView = worldPosToEye / distPosToEye;
     
     Material mat = { diffuseAlbedo, gFresnelR0, gRoughness };
     float3 shadowFactor = 1.0f;
     float4 directLight = ComputeLighting(gLights, mat, pin.PosW, worldNormal, worldView, shadowFactor);
     float4 ambient = gAmbientLight * diffuseAlbedo;
     float4 finalCol = ambient + directLight;
+    
+#ifdef FOG
+    float s = saturate((distPosToEye - gFogStart) / gFogRange);
+    finalCol = lerp(finalCol, gFogColor, s);
+#endif
+    
     finalCol.a = diffuseAlbedo.a;
     return finalCol;
 }
