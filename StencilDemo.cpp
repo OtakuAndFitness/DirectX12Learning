@@ -708,8 +708,8 @@ void StencilDemo::Draw() {
 	//绘制顶点（通过索引缓冲区绘制）
 	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Opaque]);
 
-	cmdList->SetPipelineState(mPSOs["transparent"].Get());
-	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Transparent]);
+	//cmdList->SetPipelineState(mPSOs["transparent"].Get());
+	//DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Transparent]);
 
 	//从渲染目标到呈现
 	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(swapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
