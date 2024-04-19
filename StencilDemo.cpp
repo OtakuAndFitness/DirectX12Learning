@@ -803,9 +803,12 @@ void StencilDemo::UpdateMainPassCB() {
 	passConstants.lights[2].strength = { 0.15f, 0.15f, 0.15f };*/
 
 	passConstants.ambientLight = { 0.25f,0.25f,0.35f,1.0f };
-	passConstants.lights[0].strength = { 1.0f,1.0f,0.9f };
-	XMVECTOR sunDir = -MathHelper::SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
-	XMStoreFloat3(&passConstants.lights[0].direction, sunDir);
+	passConstants.lights[0].strength = { 0.03f, 0.03f, 0.03f };
+	passConstants.lights[0].direction = { -14.5f,12.84f,-1.13f };
+	passConstants.lights[1].strength = { 0.05f, 0.05f, 0.05f };
+	passConstants.lights[1].direction = { -3.15f,5.16f,-20.94f };
+	//XMVECTOR sunDir = -MathHelper::SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
+	//XMStoreFloat3(&passConstants.lights[0].direction, sunDir);
 
 	passConstants.fogRange = 200.0f;
 	passConstants.fogStart = 2.0f;
@@ -885,7 +888,7 @@ void StencilDemo::OnMouseMove(WPARAM btnState, int x, int y) {
 		mTheta += dx;
 		mPhi += dy;
 
-		mPhi = MathHelper::Clamp(mPhi, 0.1f, 3.1416f - 0.1f);
+		mPhi = MathHelper::Clamp(mPhi, 0.1f, MathHelper::Pi - 0.1f);
 	}
 	else if ((btnState & MK_RBUTTON) != 0) {
 		float dx = 0.2f * static_cast<float>(x - mLastMousePos.x);
