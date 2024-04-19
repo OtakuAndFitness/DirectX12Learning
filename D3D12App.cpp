@@ -99,8 +99,8 @@ D3D12App::~D3D12App()
 	}
 }
 
-bool D3D12App::Init(HINSTANCE hInstance, int nShowCmd) {
-	if (!InitWindow(hInstance, nShowCmd)) {
+bool D3D12App::Init() {
+	if (!InitWindow()) {
 		return false;
 	}
 	
@@ -114,13 +114,13 @@ bool D3D12App::Init(HINSTANCE hInstance, int nShowCmd) {
 	
 }
 
-bool D3D12App::InitWindow(HINSTANCE hInstance, int nShowCmd) {
+bool D3D12App::InitWindow() {
 	WNDCLASS wc;
 	wc.style = CS_HREDRAW | CS_VREDRAW;//水平和垂直方向改变是重绘窗口
 	wc.lpfnWndProc = MainWndProc;//设置窗口过程为MainWndProc,用于处理窗口接收到的消息
 	wc.cbClsExtra = 0;//指定窗口实例额外的内存空间，这里设置为0，即不分配额外空间
 	wc.cbWndExtra = 0;//同上
-	wc.hInstance = hInstance;//应用程序实例句柄
+	wc.hInstance = mhAppInst;//应用程序实例句柄
 	wc.hIcon = LoadIcon(0, IDC_ARROW);//加载一个默认的图标作为窗口的图标
 	wc.hCursor = LoadCursor(0, IDC_ARROW);//加载一个默认的光标作为窗口光标
 	wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);//窗口背景刷成黑色
@@ -144,7 +144,7 @@ bool D3D12App::InitWindow(HINSTANCE hInstance, int nShowCmd) {
 	int height = R.bottom - R.top;
 
 	//创建窗口
-	mhMainWnd = CreateWindow(L"MainWindow", L"DXInitailize", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, width, height, 0, 0, hInstance, 0);
+	mhMainWnd = CreateWindow(L"MainWindow", L"DXInitailize", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, width, height, 0, 0, mhAppInst, 0);
 
 	//窗口创建失败
 	if (!mhMainWnd) {
@@ -153,7 +153,7 @@ bool D3D12App::InitWindow(HINSTANCE hInstance, int nShowCmd) {
 	}
 
 	//成功则显示并更新窗口
-	ShowWindow(mhMainWnd, nShowCmd);
+	ShowWindow(mhMainWnd, SW_SHOW);
 	UpdateWindow(mhMainWnd);
 
 	return true;

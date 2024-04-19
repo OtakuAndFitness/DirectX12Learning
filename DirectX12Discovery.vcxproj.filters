@@ -42,6 +42,12 @@
     <ClCompile Include="DDSTextureLoader.cpp">
       <Filter>资源文件</Filter>
     </ClCompile>
+    <ClCompile Include="StencilDemo.cpp">
+      <Filter>资源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MathHelper.cpp">
+      <Filter>资源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="d3dx12.h">

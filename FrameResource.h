@@ -7,6 +7,9 @@
 //定义顶点结构体
 struct Vertex
 {
+	Vertex() = default;
+	Vertex(float x, float y, float z, float nx, float ny, float nz, float u, float v) : Pos(x,z,y), Normal(nx,ny,nz), TexC(u,v){}
+
 	XMFLOAT3 Pos;
 	//XMFLOAT4 Color;
 	XMFLOAT3 Normal;
@@ -47,6 +50,7 @@ struct FrameResource
 {
 	public:
 		FrameResource(ID3D12Device* device, UINT passCount, UINT objCount, UINT matCount, UINT wavesVertCount);
+		FrameResource(ID3D12Device* device, UINT passCount, UINT objCount, UINT matCount);
 		FrameResource(const FrameResource& rhs) = delete;
 		FrameResource& operator = (const FrameResource& rhs) = delete;
 		~FrameResource();

@@ -3,6 +3,8 @@
 #include <Windows.h>
 #include <DirectXMath.h>
 
+using namespace DirectX;
+
 class MathHelper {
 public:
     static XMFLOAT4X4 Identity4x4()
@@ -46,4 +48,7 @@ public:
     {
         return a + rand() % ((b - a) + 1);
     }
+
+    static const float Pi;
+
 };

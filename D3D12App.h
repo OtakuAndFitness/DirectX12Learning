@@ -22,8 +22,8 @@ public:
 	virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 	int Run();
-	virtual bool Init(HINSTANCE hInstance, int nShowCmd);
-	bool InitWindow(HINSTANCE hInstance, int nShowCmd);
+	virtual bool Init();
+	bool InitWindow();
 	bool InitDirect3D();
 	virtual void Update() = 0;
 	virtual void Draw() = 0;
