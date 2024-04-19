@@ -723,7 +723,7 @@ void StencilDemo::Draw() {
 	ref_mCurrentBackBuffer = (ref_mCurrentBackBuffer + 1) % 2;
 
 	//FlushCmdQueue();
-	mCurrFrameResource->fenceCPU = mCurrentFence++;
+	mCurrFrameResource->fenceCPU = ++mCurrentFence;
 	cmdQueue->Signal(fence.Get(), mCurrentFence);
 }
 
