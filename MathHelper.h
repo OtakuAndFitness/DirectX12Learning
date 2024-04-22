@@ -32,6 +32,11 @@ public:
         return x < low ? low : (x > high ? high : x);
     }
 
+    template<typename T>
+    static T Max(const T& a, const T& b) {
+        return a > b ? a : b;
+    }
+
     // Returns random float in [0, 1).
     static float RandF()
     {
@@ -48,6 +53,8 @@ public:
     {
         return a + rand() % ((b - a) + 1);
     }
+
+
 
     static const float Pi;
 

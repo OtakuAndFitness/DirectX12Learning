@@ -34,7 +34,7 @@ enum class RenderLayer : int
 	Reflect,
 	Transparent,
 	AlphaTest,
-	Shaow,
+	Shadow,
 	Count
 };
 
@@ -82,14 +82,14 @@ private:
 	float mPhi = 0.42f * XM_PIDIV2;
 	float mRadius = 12.0f;
 
-	float mSunTheta = 1.25f * XM_PI;
-	float mSunPhi = XM_PIDIV4;
+	//float mSunTheta = 1.25f * XM_PI;
+	//float mSunPhi = XM_PIDIV4;
 
 	XMFLOAT3 mEyePos = { 0.0f, 0.0f, 0.0f };
 	XMFLOAT4X4 mView = MathHelper::Identity4x4();
 	XMFLOAT4X4 mProj = MathHelper::Identity4x4();
 
-	XMFLOAT3 mSkullTranslation = { 4.0f,0.0f,0.0f };
+	XMFLOAT3 mSkullTranslation = { 0.0f,1.0f,-10.0f };
 
 	int mCurrFrameResourceIndex = 0;
 	FrameResource* mCurrFrameResource = nullptr;
@@ -114,6 +114,10 @@ private:
 
 	PassConstants mMainPassConstants;
 	PassConstants mReflectedPassConstants;
+
+	RenderItem* mSkullItem = nullptr;
+	RenderItem* mSkullMirrorItem = nullptr;
+	RenderItem* mSkullShadowItem = nullptr;
 
 };
 
@@ -504,16 +508,25 @@ void StencilDemo::BuildMaterials() {
 	mirror->fresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
 	mirror->roughness = 0.5f;
 
+	auto shadow = make_unique<Material>();
+	shadow->name = "shadowMat";
+	shadow->matCBIndex = 4;
+	shadow->diffuseSrvHeapIndex = 3;
+	shadow->diffuseAlbedo = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.5f);
+	shadow->fresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
+	shadow->roughness = 0.0f;
+
 	mMaterials[floor->name] = move(floor);
 	mMaterials[wall->name] = move(wall);
 	mMaterials[mirror->name] = move(mirror);
 	mMaterials[skull->name] = move(skull);
+	mMaterials[shadow->name] = move(shadow);
 }
 
 void StencilDemo::BuildRenderItems() {
 	auto floorItem = make_unique<RenderItem>();
 	//floorItem->world = MathHelper::Identity4x4();
-	XMStoreFloat4x4(&(floorItem->world), XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f) * XMMatrixRotationX(0.5f * MathHelper::Pi));
+	XMStoreFloat4x4(&(floorItem->world), XMMatrixRotationX(0.5f * MathHelper::Pi) * XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
 	//XMStoreFloat4x4(&floorItem->texTransform, XMMatrixScaling(1.6f, 1.6f, 1.6f));
 	floorItem->texTransform = MathHelper::Identity4x4();
 	floorItem->objCBIndex = 0;
@@ -528,7 +541,7 @@ void StencilDemo::BuildRenderItems() {
 	auto wallItem = make_unique<RenderItem>();
 	//wallItem->world = MathHelper::Identity4x4();
 	wallItem->texTransform = MathHelper::Identity4x4();
-	XMStoreFloat4x4(&(wallItem->world), XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f) * XMMatrixRotationX(-0.5f * MathHelper::Pi));
+	XMStoreFloat4x4(&(wallItem->world), XMMatrixRotationX(-0.5f * MathHelper::Pi) * XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
 	//XMStoreFloat4x4(&wallItem->texTransform, XMMatrixScaling(0.8f, 0.8f, 0.8f));
 	wallItem->objCBIndex = 1;
 	wallItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -541,7 +554,7 @@ void StencilDemo::BuildRenderItems() {
 
 	auto skullItem = make_unique<RenderItem>();
 	//skullItem->world = MathHelper::Identity4x4();
-	XMStoreFloat4x4(&skullItem->world, XMMatrixScaling(0.45f, 0.45f, 0.45f) * XMMatrixTranslation(mSkullTranslation.x, mSkullTranslation.y, mSkullTranslation.z) * XMMatrixRotationY(0.5f * MathHelper::Pi));
+	XMStoreFloat4x4(&skullItem->world, XMMatrixRotationY(0.5f * MathHelper::Pi) * XMMatrixScaling(0.45f, 0.45f, 0.45f) * XMMatrixTranslation(mSkullTranslation.x, mSkullTranslation.y, mSkullTranslation.z));
 	skullItem->texTransform = MathHelper::Identity4x4();
 	skullItem->objCBIndex = 2;
 	skullItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -550,11 +563,12 @@ void StencilDemo::BuildRenderItems() {
 	skullItem->indexCount = skullItem->geo->DrawArgs["skull"].IndexCount;
 	skullItem->baseVertexLocation = skullItem->geo->DrawArgs["skull"].BaseVertexLocation;
 	skullItem->startIndexLocation = skullItem->geo->DrawArgs["skull"].StartIndexLocation;
+	mSkullItem = skullItem.get();
 	mRenderItemLayer[(int)RenderLayer::Opaque].push_back(skullItem.get());
 
 	auto mirrorItem = make_unique<RenderItem>();
 	//mirrorItem->world = MathHelper::Identity4x4();
-	XMStoreFloat4x4(&(mirrorItem->world), XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f) * XMMatrixRotationX(-0.5f * MathHelper::Pi));
+	XMStoreFloat4x4(&(mirrorItem->world), XMMatrixRotationX(-0.5f * MathHelper::Pi) * XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
 	mirrorItem->texTransform = MathHelper::Identity4x4();
 	//XMStoreFloat4x4(&mirrorItem->texTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 	mirrorItem->objCBIndex = 3;
@@ -569,15 +583,25 @@ void StencilDemo::BuildRenderItems() {
 
 	auto skullMirrorItem = make_unique<RenderItem>();
 	*skullMirrorItem = *skullItem;
-	XMStoreFloat4x4(&skullMirrorItem->world, XMMatrixScaling(0.45f, 0.45f, 0.45f) * XMMatrixTranslation(mSkullTranslation.x - 7.0f, mSkullTranslation.y, mSkullTranslation.z) * XMMatrixRotationY(0.5f * MathHelper::Pi));
+	XMStoreFloat4x4(&skullMirrorItem->world, XMMatrixRotationY(0.5f * MathHelper::Pi) * XMMatrixScaling(0.45f, 0.45f, 0.45f) * XMMatrixTranslation(mSkullTranslation.x, mSkullTranslation.y, mSkullTranslation.z + 20.0f));
 	skullMirrorItem->objCBIndex = 4;
+	mSkullMirrorItem = skullMirrorItem.get();
 	mRenderItemLayer[(int)RenderLayer::Reflect].push_back(skullMirrorItem.get());
+
+	auto skullShadowItem = make_unique<RenderItem>();
+	*skullShadowItem = *skullItem;
+	skullShadowItem->objCBIndex = 5;
+	skullShadowItem->mat = mMaterials["shadowMat"].get();
+	mSkullShadowItem = skullShadowItem.get();
+	mRenderItemLayer[(int)RenderLayer::Shadow].push_back(skullShadowItem.get());
 
 	mAllRenderItems.push_back(move(floorItem));
 	mAllRenderItems.push_back(move(wallItem));
 	mAllRenderItems.push_back(move(skullItem));
 	mAllRenderItems.push_back(move(mirrorItem));
 	mAllRenderItems.push_back(move(skullMirrorItem));
+	mAllRenderItems.push_back(move(skullShadowItem));
+
 }
 
 void StencilDemo::BuildFrameResource() {
@@ -681,6 +705,27 @@ void StencilDemo::BuildPSOs() {
 	reflectionPsoDesc.DepthStencilState = reflectionsDepthStencil;
 
 	ThrowIfFailed(d3dDevice->CreateGraphicsPipelineState(&reflectionPsoDesc, IID_PPV_ARGS(&mPSOs["drawStencilReflections"])));
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC shadowBlendPsoDesc = transparentPsoDesc;
+	D3D12_DEPTH_STENCIL_DESC shadowsDepthStencil;
+	shadowsDepthStencil.DepthEnable = true;
+	shadowsDepthStencil.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	shadowsDepthStencil.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	shadowsDepthStencil.StencilEnable = true;
+	shadowsDepthStencil.StencilReadMask = 0xff;
+	shadowsDepthStencil.StencilWriteMask = 0xff;
+	shadowsDepthStencil.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+	shadowsDepthStencil.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+	shadowsDepthStencil.FrontFace.StencilPassOp = D3D12_STENCIL_OP_INCR;
+	shadowsDepthStencil.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL;
+	shadowsDepthStencil.BackFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+	shadowsDepthStencil.BackFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+	shadowsDepthStencil.BackFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+	shadowsDepthStencil.BackFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL;
+
+	shadowBlendPsoDesc.DepthStencilState = shadowsDepthStencil;
+	ThrowIfFailed(d3dDevice->CreateGraphicsPipelineState(&shadowBlendPsoDesc, IID_PPV_ARGS(&mPSOs["shadow"])));
+
 }
 
 void StencilDemo::DrawRenderItems(vector<RenderItem*>& items) {
@@ -772,17 +817,21 @@ void StencilDemo::Draw() {
 	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Opaque]);
 
 	cmdList->OMSetStencilRef(1);
-	cmdList->SetPipelineState(mPSOs["markStencilMirrors"].Get());
-	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Mirrors]);
+	cmdList->SetPipelineState(mPSOs["markStencilMirrors"].Get());//设置镜像骷髅模板PSO
+	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Mirrors]);//绘制镜像物体渲染项
 
 	cmdList->SetGraphicsRootConstantBufferView(4, passCB->GetGPUVirtualAddress() + 1 * passCBByteSize);
 	cmdList->SetPipelineState(mPSOs["drawStencilReflections"].Get());
 	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Reflect]);
 
+	//还原passCB和Ref模板值
 	cmdList->SetGraphicsRootConstantBufferView(4, passCB->GetGPUVirtualAddress());
 	cmdList->OMSetStencilRef(0);
-	cmdList->SetPipelineState(mPSOs["transparent"].Get());
-	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Transparent]);
+	cmdList->SetPipelineState(mPSOs["transparent"].Get());//设置镜子PSO
+	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Transparent]);//绘制透明渲染项
+
+	cmdList->SetPipelineState(mPSOs["shadow"].Get());
+	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Shadow]);
 
 	//从渲染目标到呈现
 	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(swapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
@@ -803,20 +852,40 @@ void StencilDemo::Draw() {
 void StencilDemo::OnKeyboardInput() {
 	const float dt = mTimer.DeltaTime();
 
-	if (GetAsyncKeyState(VK_LEFT) & 0X80000) {
-		mSunTheta -= 1.0F * dt;
+	if (GetAsyncKeyState('A') & 0X80000) {
+		mSkullTranslation.x -= 1.0f * dt;
 	}
-	if (GetAsyncKeyState(VK_RIGHT) & 0X80000) {
-		mSunTheta += 1.0F * dt;
+	if (GetAsyncKeyState('D') & 0X80000) {
+		mSkullTranslation.x += 1.0f * dt;
 	}
-	if (GetAsyncKeyState(VK_UP) & 0X80000) {
-		mSunPhi -= 1.0F * dt;
+	if (GetAsyncKeyState('W') & 0X80000) {
+		mSkullTranslation.y += 1.0f * dt;
 	}
-	if (GetAsyncKeyState(VK_DOWN) & 0X80000) {
-		mSunPhi += 1.0F * dt;
+	if (GetAsyncKeyState('S') & 0X80000) {
+		mSkullTranslation.y -= 1.0f * dt;
 	}
 
-	mSunPhi = MathHelper::Clamp(mSunPhi, 0.1F, XM_PIDIV2);
+	mSkullTranslation.y = MathHelper::Max(0.0f, mSkullTranslation.y);
+
+	XMMATRIX skullRotate = XMMatrixRotationY(0.5f * MathHelper::Pi);
+	XMMATRIX skullScale = XMMatrixScaling(0.45f, 0.45f, 0.45f);
+	XMMATRIX skullTranslate = XMMatrixTranslation(mSkullTranslation.x, mSkullTranslation.y, mSkullTranslation.z);
+	XMMATRIX skullWorld = skullRotate * skullTranslate * skullScale;
+	XMStoreFloat4x4(&mSkullItem->world, skullWorld);
+
+	XMVECTOR mirrorPlane = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+	XMMATRIX reflectMatrix = XMMatrixReflect(mirrorPlane);
+	XMStoreFloat4x4(&mSkullMirrorItem->world, skullWorld * reflectMatrix);
+
+	XMVECTOR shadowPlane = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	XMVECTOR toMainLight = -XMLoadFloat3(&mMainPassConstants.lights[0].direction);
+	XMMATRIX S = XMMatrixShadow(shadowPlane, toMainLight);
+	XMMATRIX shadowOffsetY = XMMatrixTranslation(0.0f, 0.001f, 0.0f);
+	XMStoreFloat4x4(&mSkullShadowItem->world, skullWorld * S * shadowOffsetY);
+
+	mSkullItem->NumFramesDirty = frameResourceCount;
+	mSkullMirrorItem->NumFramesDirty = frameResourceCount;
+	mSkullShadowItem->NumFramesDirty = frameResourceCount;
 }
 
 void StencilDemo::UpdateCamera() {
@@ -867,12 +936,13 @@ void StencilDemo::UpdateMainPassCB() {
 	mMainPassConstants.totalTime = mTimer.TotalTime();
 
 	mMainPassConstants.ambientLight = { 0.25f,0.25f,0.35f,1.0f };
+
 	mMainPassConstants.lights[0].strength = { 0.03f, 0.03f, 0.03f };
-	mMainPassConstants.lights[0].direction = { -14.5f,12.84f,-1.13f };
-	mMainPassConstants.lights[1].strength = { 0.05f, 0.05f, 0.05f };
-	mMainPassConstants.lights[1].direction = { -3.15f,5.16f,-20.94f };
-	mMainPassConstants.lights[1].strength = { 0.06f, 0.06f, 0.06f };
-	mMainPassConstants.lights[1].direction = { -4.65f,9.17f,-10.92f };
+	mMainPassConstants.lights[0].direction = { 0.57735f, -0.57735f, 0.57735f };
+	mMainPassConstants.lights[1].strength = { 0.04f, 0.04f, 0.04f };
+	mMainPassConstants.lights[1].direction = { -13.15f,5.16f,-20.94f };
+	mMainPassConstants.lights[2].strength = { 0.03f, 0.03f, 0.03f };
+	mMainPassConstants.lights[2].direction = { 0.0f,1.0f,20.0f };
 	//XMVECTOR sunDir = -MathHelper::SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
 	//XMStoreFloat3(&passConstants.lights[0].direction, sunDir);
 
@@ -912,7 +982,7 @@ void StencilDemo::UpdateReflectPassCBs()
 {
 	mReflectedPassConstants = mMainPassConstants;
 
-	XMVECTOR mirrorPlane = XMVectorSet(3.0f, 0.0f, 0.0f, 0.0f);
+	XMVECTOR mirrorPlane = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
 	XMMATRIX R = XMMatrixReflect(mirrorPlane);
 
 	for (int i = 0; i < 3; i++)
@@ -943,6 +1013,7 @@ void StencilDemo::Update() {
 	UpdateObjectCBs();
 	UpdateMatCBs();
 	UpdateMainPassCB();
+	UpdateReflectPassCBs();
 }
 
 void StencilDemo::OnResize() {
