@@ -30,7 +30,11 @@ struct RenderItem {
 enum class RenderLayer : int
 {
 	Opaque = 0,
+	Mirrors,
+	Reflect,
 	Transparent,
+	AlphaTest,
+	Shaow,
 	Count
 };
 
@@ -60,6 +64,7 @@ private:
 	void UpdateObjectCBs();
 	void UpdateMainPassCB();
 	void UpdateMatCBs();
+	void UpdateReflectPassCBs();
 
 	virtual void Draw()override;
 	virtual void OnResize()override;
@@ -86,7 +91,6 @@ private:
 
 	XMFLOAT3 mSkullTranslation = { 4.0f,0.0f,0.0f };
 
-	
 	int mCurrFrameResourceIndex = 0;
 	FrameResource* mCurrFrameResource = nullptr;
 	vector<unique_ptr<FrameResource>> mFrameResource;
@@ -107,6 +111,9 @@ private:
 	vector<RenderItem*> mRenderItemLayer[(int)RenderLayer::Count];
 
 	unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOs;
+
+	PassConstants mMainPassConstants;
+	PassConstants mReflectedPassConstants;
 
 };
 
@@ -557,19 +564,27 @@ void StencilDemo::BuildRenderItems() {
 	mirrorItem->indexCount = mirrorItem->geo->DrawArgs["mirror"].IndexCount;
 	mirrorItem->baseVertexLocation = mirrorItem->geo->DrawArgs["mirror"].BaseVertexLocation;
 	mirrorItem->startIndexLocation = mirrorItem->geo->DrawArgs["mirror"].StartIndexLocation;
-	mRenderItemLayer[(int)RenderLayer::Opaque].push_back(mirrorItem.get());
+	mRenderItemLayer[(int)RenderLayer::Mirrors].push_back(mirrorItem.get());
+	mRenderItemLayer[(int)RenderLayer::Transparent].push_back(mirrorItem.get());
+
+	auto skullMirrorItem = make_unique<RenderItem>();
+	*skullMirrorItem = *skullItem;
+	XMStoreFloat4x4(&skullMirrorItem->world, XMMatrixScaling(0.45f, 0.45f, 0.45f) * XMMatrixTranslation(mSkullTranslation.x - 7.0f, mSkullTranslation.y, mSkullTranslation.z) * XMMatrixRotationY(0.5f * MathHelper::Pi));
+	skullMirrorItem->objCBIndex = 4;
+	mRenderItemLayer[(int)RenderLayer::Reflect].push_back(skullMirrorItem.get());
 
 	mAllRenderItems.push_back(move(floorItem));
 	mAllRenderItems.push_back(move(wallItem));
 	mAllRenderItems.push_back(move(skullItem));
 	mAllRenderItems.push_back(move(mirrorItem));
+	mAllRenderItems.push_back(move(skullMirrorItem));
 }
 
 void StencilDemo::BuildFrameResource() {
 	for (int i = 0; i < frameResourceCount; i++)
 	{
 		mFrameResource.push_back(make_unique<FrameResource>(d3dDevice.Get(),
-			1, //passCount
+			2, //passCount
 			(UINT)mAllRenderItems.size(),//objCount
 			(UINT)mMaterials.size()));
 	}
@@ -620,6 +635,52 @@ void StencilDemo::BuildPSOs() {
 	transparentPsoDesc.BlendState.RenderTarget[0] = transparencyBlendDesc; // 赋值RenderTarget第一个元素，即对每一个渲染目标执行相同操作
 
 	ThrowIfFailed(d3dDevice->CreateGraphicsPipelineState(&transparentPsoDesc, IID_PPV_ARGS(&mPSOs["transparent"])));
+
+	CD3DX12_BLEND_DESC mirrorBlendState(D3D12_DEFAULT);
+	mirrorBlendState.RenderTarget[0].RenderTargetWriteMask = 0;//禁止颜色数据写入
+
+	D3D12_DEPTH_STENCIL_DESC mirrorDepthStencil;
+	mirrorDepthStencil.DepthEnable = true;//开启深度测试
+	mirrorDepthStencil.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;//禁止深度写入
+	mirrorDepthStencil.DepthFunc = D3D12_COMPARISON_FUNC_LESS;//比较函数“小于”
+	mirrorDepthStencil.StencilEnable = true;//开启模板测试
+	mirrorDepthStencil.StencilReadMask = 0xff;//默认255，不屏蔽模板值
+	mirrorDepthStencil.StencilWriteMask = 0xff;//默认255，不屏蔽模板值
+	mirrorDepthStencil.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;//模板测试失败，保持原模板值
+	mirrorDepthStencil.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;//深度测试失败，保持原模板值
+	mirrorDepthStencil.FrontFace.StencilPassOp = D3D12_STENCIL_OP_REPLACE;//深度模板测试通过，替换Ref模板值
+	mirrorDepthStencil.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;//比较函数“永远通过测试”
+	mirrorDepthStencil.BackFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;//反面不渲染，随便写
+	mirrorDepthStencil.BackFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;//反面不渲染，随便写
+	mirrorDepthStencil.BackFace.StencilPassOp = D3D12_STENCIL_OP_REPLACE;//反面不渲染，随便写
+	mirrorDepthStencil.BackFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;//反面不渲染，随便写
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC mirrorPsoDesc = opaqueDesc;
+	mirrorPsoDesc.BlendState = mirrorBlendState;
+	mirrorPsoDesc.DepthStencilState = mirrorDepthStencil;
+
+	ThrowIfFailed(d3dDevice->CreateGraphicsPipelineState(&mirrorPsoDesc, IID_PPV_ARGS(&mPSOs["markStencilMirrors"])));
+
+	D3D12_DEPTH_STENCIL_DESC reflectionsDepthStencil;
+	reflectionsDepthStencil.DepthEnable = true;//开启深度测试
+	reflectionsDepthStencil.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;//禁止深度写入
+	reflectionsDepthStencil.DepthFunc = D3D12_COMPARISON_FUNC_LESS;//比较函数“小于”
+	reflectionsDepthStencil.StencilEnable = true;//开启模板测试
+	reflectionsDepthStencil.StencilReadMask = 0xff;//默认255，不屏蔽模板值
+	reflectionsDepthStencil.StencilWriteMask = 0xff;//默认255，不屏蔽模板值
+	reflectionsDepthStencil.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;//模板测试失败，保持原模板值
+	reflectionsDepthStencil.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;//深度测试失败，保持原模板值
+	reflectionsDepthStencil.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;//深度模板测试通过，保持原模板值模板值
+	reflectionsDepthStencil.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL;//比较函数“等于”
+	reflectionsDepthStencil.BackFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;//反面不渲染，随便写
+	reflectionsDepthStencil.BackFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;//反面不渲染，随便写
+	reflectionsDepthStencil.BackFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;//反面不渲染，随便写
+	reflectionsDepthStencil.BackFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL;//反面不渲染，随便写
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC reflectionPsoDesc = opaqueDesc;
+	reflectionPsoDesc.DepthStencilState = reflectionsDepthStencil;
+
+	ThrowIfFailed(d3dDevice->CreateGraphicsPipelineState(&reflectionPsoDesc, IID_PPV_ARGS(&mPSOs["drawStencilReflections"])));
 }
 
 void StencilDemo::DrawRenderItems(vector<RenderItem*>& items) {
@@ -701,6 +762,8 @@ void StencilDemo::Draw() {
 	////设置根签名
 	cmdList->SetGraphicsRootSignature(mRootSignature.Get());
 
+	UINT passCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(PassConstants));
+
 	auto passCB = mCurrFrameResource->passCB->Resource();
 	cmdList->SetGraphicsRootConstantBufferView(2, //根参数的起始索引
 		passCB->GetGPUVirtualAddress());
@@ -708,8 +771,18 @@ void StencilDemo::Draw() {
 	//绘制顶点（通过索引缓冲区绘制）
 	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Opaque]);
 
-	//cmdList->SetPipelineState(mPSOs["transparent"].Get());
-	//DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Transparent]);
+	cmdList->OMSetStencilRef(1);
+	cmdList->SetPipelineState(mPSOs["markStencilMirrors"].Get());
+	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Mirrors]);
+
+	cmdList->SetGraphicsRootConstantBufferView(4, passCB->GetGPUVirtualAddress() + 1 * passCBByteSize);
+	cmdList->SetPipelineState(mPSOs["drawStencilReflections"].Get());
+	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Reflect]);
+
+	cmdList->SetGraphicsRootConstantBufferView(4, passCB->GetGPUVirtualAddress());
+	cmdList->OMSetStencilRef(0);
+	cmdList->SetPipelineState(mPSOs["transparent"].Get());
+	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Transparent]);
 
 	//从渲染目标到呈现
 	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(swapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
@@ -787,36 +860,27 @@ void StencilDemo::UpdateMainPassCB() {
 
 	XMMATRIX VP_Matrix = v * p;
 
-	PassConstants passConstants;
-	XMStoreFloat4x4(&passConstants.viewProj, XMMatrixTranspose(VP_Matrix));
+	XMStoreFloat4x4(&mMainPassConstants.viewProj, XMMatrixTranspose(VP_Matrix));
 
-	passConstants.eyePosW = mEyePos;
+	mMainPassConstants.eyePosW = mEyePos;
 
-	passConstants.totalTime = mTimer.TotalTime();
+	mMainPassConstants.totalTime = mTimer.TotalTime();
 
-	/*passConstants.ambientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
-	passConstants.lights[0].direction = { 0.57735f, -0.57735f, 0.57735f };
-	passConstants.lights[0].strength = { 0.6f, 0.6f, 0.6f };
-	passConstants.lights[1].direction = { -0.57735f, -0.57735f, 0.57735f };
-	passConstants.lights[1].strength = { 0.3f, 0.3f, 0.3f };
-	passConstants.lights[2].direction = { 0.0f, -0.707f, -0.707f };
-	passConstants.lights[2].strength = { 0.15f, 0.15f, 0.15f };*/
-
-	passConstants.ambientLight = { 0.25f,0.25f,0.35f,1.0f };
-	passConstants.lights[0].strength = { 0.03f, 0.03f, 0.03f };
-	passConstants.lights[0].direction = { -14.5f,12.84f,-1.13f };
-	passConstants.lights[1].strength = { 0.05f, 0.05f, 0.05f };
-	passConstants.lights[1].direction = { -3.15f,5.16f,-20.94f };
-	passConstants.lights[1].strength = { 0.06f, 0.06f, 0.06f };
-	passConstants.lights[1].direction = { -4.65f,9.17f,-10.92f };
+	mMainPassConstants.ambientLight = { 0.25f,0.25f,0.35f,1.0f };
+	mMainPassConstants.lights[0].strength = { 0.03f, 0.03f, 0.03f };
+	mMainPassConstants.lights[0].direction = { -14.5f,12.84f,-1.13f };
+	mMainPassConstants.lights[1].strength = { 0.05f, 0.05f, 0.05f };
+	mMainPassConstants.lights[1].direction = { -3.15f,5.16f,-20.94f };
+	mMainPassConstants.lights[1].strength = { 0.06f, 0.06f, 0.06f };
+	mMainPassConstants.lights[1].direction = { -4.65f,9.17f,-10.92f };
 	//XMVECTOR sunDir = -MathHelper::SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
 	//XMStoreFloat3(&passConstants.lights[0].direction, sunDir);
 
-	passConstants.fogRange = 200.0f;
-	passConstants.fogStart = 2.0f;
+	mMainPassConstants.fogRange = 200.0f;
+	mMainPassConstants.fogStart = 2.0f;
 
 	auto currPassCB = mCurrFrameResource->passCB.get();
-	currPassCB->CopyData(0, passConstants);
+	currPassCB->CopyData(0, mMainPassConstants);
 }
 
 void StencilDemo::UpdateMatCBs() {
@@ -842,6 +906,24 @@ void StencilDemo::UpdateMatCBs() {
 			mat->numFramesDirty--;
 		}
 	}
+}
+
+void StencilDemo::UpdateReflectPassCBs()
+{
+	mReflectedPassConstants = mMainPassConstants;
+
+	XMVECTOR mirrorPlane = XMVectorSet(3.0f, 0.0f, 0.0f, 0.0f);
+	XMMATRIX R = XMMatrixReflect(mirrorPlane);
+
+	for (int i = 0; i < 3; i++)
+	{
+		XMVECTOR lightDir = XMLoadFloat3(&mMainPassConstants.lights[i].direction);
+		XMVECTOR reflectedLightDir = XMVector3TransformNormal(lightDir, R);
+		XMStoreFloat3(&mReflectedPassConstants.lights[i].direction, reflectedLightDir);
+	}
+
+	auto currPassCB = mCurrFrameResource->passCB.get();
+	currPassCB->CopyData(1, mReflectedPassConstants);
 }
 
 void StencilDemo::Update() {
