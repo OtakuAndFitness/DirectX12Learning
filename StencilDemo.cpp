@@ -807,6 +807,8 @@ void StencilDemo::UpdateMainPassCB() {
 	passConstants.lights[0].direction = { -14.5f,12.84f,-1.13f };
 	passConstants.lights[1].strength = { 0.05f, 0.05f, 0.05f };
 	passConstants.lights[1].direction = { -3.15f,5.16f,-20.94f };
+	passConstants.lights[1].strength = { 0.06f, 0.06f, 0.06f };
+	passConstants.lights[1].direction = { -4.65f,9.17f,-10.92f };
 	//XMVECTOR sunDir = -MathHelper::SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
 	//XMStoreFloat3(&passConstants.lights[0].direction, sunDir);
 
