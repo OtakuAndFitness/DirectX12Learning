@@ -107,7 +107,7 @@ struct MeshGeometry {
 	D3D12_INDEX_BUFFER_VIEW GetIbv()const {
 		D3D12_INDEX_BUFFER_VIEW ibv;
 		ibv.BufferLocation = IndexBufferGPU->GetGPUVirtualAddress();
-		ibv.Format = DXGI_FORMAT_R16_UINT;
+		ibv.Format = IndexFormat;
 		ibv.SizeInBytes = IndexBufferByteSize;
 
 		return ibv;
