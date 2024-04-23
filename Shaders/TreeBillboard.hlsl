@@ -13,7 +13,7 @@
 
 #include "LightingUtils.hlsl"
 
-Texture2D gDiffuseMap : register(t0); //所有漫反射贴图
+Texture2DArray gTreeMapArray : register(t0); //所有漫反射贴图
 
 //6个不同类型的采样器
 SamplerState gSamPointWrap : register(s0);
@@ -71,6 +71,7 @@ struct GeoOut
     float3 posW : POSITION;
     float3 normalW : NORMAL;
     float2 texC : TEXCOORD;
+    uint primID : SV_PrimitiveID; //自动生成图元ID
 };
 
 VertexOut VS(VertexIn vin)
@@ -84,7 +85,7 @@ VertexOut VS(VertexIn vin)
 }
 
 [maxvertexcount(4)]
-void GS(point VertexOut gin[1], inout TriangleStream<GeoOut> triStream)
+void GS(point VertexOut gin[1], uint primID : SV_PrimitiveID, inout TriangleStream<GeoOut> triStream)
 {
     float3 up = float3(0.0f, 1.0f, 0.0f);
     float3 look = gEyePosW - gin[0].centerPosW;
@@ -117,6 +118,7 @@ void GS(point VertexOut gin[1], inout TriangleStream<GeoOut> triStream)
         geoOut.posW = v[i];
         geoOut.normalW = up;
         geoOut.texC = texCoord[i];
+        geoOut.primID = primID;
         
         triStream.Append(geoOut);
     }
@@ -125,7 +127,8 @@ void GS(point VertexOut gin[1], inout TriangleStream<GeoOut> triStream)
 
 float4 PS(GeoOut pin) : SV_Target
 {
-    float4 diffuseAlbedo = gDiffuseMap.Sample(gSamAnisotropicWarp, pin.texC) * gDiffuseAlbedo;
+    float3 uvw = float3(pin.texC, pin.primID % 3);
+    float4 diffuseAlbedo = gTreeMapArray.Sample(gSamAnisotropicWarp, uvw) * gDiffuseAlbedo;
     
 #ifdef ALPHA_TEST
     clip(diffuseAlbedo.a - 0.1f);
