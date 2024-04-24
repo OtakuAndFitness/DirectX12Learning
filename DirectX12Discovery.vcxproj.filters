@@ -48,6 +48,9 @@
     <ClCompile Include="MathHelper.cpp">
       <Filter>资源文件</Filter>
     </ClCompile>
+    <ClCompile Include="BlurFilter.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="d3dx12.h">
@@ -78,6 +81,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="DDSTextureLoader.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="BlurFilter.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

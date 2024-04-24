@@ -1,6 +1,7 @@
 #include "D3D12App.h"
 #include "FrameResource.h"
 #include "Waves.h"
+#include "BlurFilter.h"
 
 struct RenderItem {
 	RenderItem() = default;
@@ -52,6 +53,7 @@ private:
 	void BuildTreeBillboardGeometry();
 	void BuildWaveGeometryBuffers();
 	void BuildRootSignature();
+	void BuildPostRootSignature();
 	void BuildPSOs();
 	void BuildShadersAndInputLayout();
 	void BuildRenderItem();
@@ -88,7 +90,7 @@ private:
 	
 	unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOs;
 	ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
-	ComPtr<ID3D12DescriptorHeap> mSrcDescriptorHeap = nullptr;
+	ComPtr<ID3D12DescriptorHeap> mCsuDescriptorHeap = nullptr;
 	
 	XMFLOAT3 mEyePos = { 0.0f, 0.0f, 0.0f };
 	XMFLOAT4X4 mView = MathHelper::Identity4x4();
@@ -119,6 +121,10 @@ private:
 	unordered_map<string, unique_ptr<Material>> mMaterials;
 
 	unordered_map<string, unique_ptr<Texture>> mTextures;
+
+	unique_ptr<BlurFilter> mBlurFilter;
+
+	ComPtr<ID3D12RootSignature> mPostProcessRootSignature = nullptr;
 };
 
 LandAndWave::LandAndWave(HINSTANCE hInstance) : D3D12App(hInstance)
@@ -142,9 +148,11 @@ bool LandAndWave::Init()
 	ThrowIfFailed(cmdList->Reset(cmdAllocator.Get(), nullptr));
 
 	mWaves = make_unique<Waves>(128, 128, 1.0f, 0.03f, 4.0f, 0.2f);
+	mBlurFilter = make_unique<BlurFilter>(d3dDevice.Get(), mClientWidth, mClientHeight, DXGI_FORMAT_R8G8B8A8_UNORM);
 
 	LoadTextures();
 	BuildRootSignature();
+	BuildPostRootSignature();
 	BuildDescriptorHeaps();
 	BuildShadersAndInputLayout();
 	BuildLandGeometry();
@@ -167,20 +175,23 @@ bool LandAndWave::Init()
 
 void LandAndWave::BuildDescriptorHeaps()
 {
+	const int textureDescriptorCount = 4;
+	const int burDescriptorCount = 4;
+
 	//创建SRV堆
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	srvHeapDesc.NumDescriptors = 4;
+	srvHeapDesc.NumDescriptors = textureDescriptorCount + burDescriptorCount;
 	//srvHeapDesc.NodeMask = 0;
-	ThrowIfFailed(d3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrcDescriptorHeap)));
+	ThrowIfFailed(d3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mCsuDescriptorHeap)));
 
 	auto woodCrateTex = mTextures["box"]->resource;
 	auto grassTex = mTextures["land"]->resource;
 	auto lakeTex = mTextures["lake"]->resource;
 	auto treeArrayTex = mTextures["treeArrayTex"]->resource;
 
-	CD3DX12_CPU_DESCRIPTOR_HANDLE handle(mSrcDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+	CD3DX12_CPU_DESCRIPTOR_HANDLE handle(mCsuDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 	
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	
@@ -210,6 +221,11 @@ void LandAndWave::BuildDescriptorHeaps()
 	srvDesc.Texture2D.MipLevels = -1;
 	srvDesc.Texture2DArray.FirstArraySlice = 0;
 	d3dDevice->CreateShaderResourceView(treeArrayTex.Get(), &srvDesc, handle);
+
+	mBlurFilter->BuildDescriptors(
+		CD3DX12_CPU_DESCRIPTOR_HANDLE(mCsuDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), 3, csuDescriptorSize),
+		CD3DX12_GPU_DESCRIPTOR_HANDLE(mCsuDescriptorHeap->GetGPUDescriptorHandleForHeapStart(), 3, csuDescriptorSize),
+		csuDescriptorSize);
 
 }
 
@@ -525,6 +541,57 @@ void LandAndWave::BuildRootSignature()
 
 }
 
+//构建后处理签名
+void LandAndWave::BuildPostRootSignature() {
+	//创建SRV描述符表作为根参数0
+	CD3DX12_DESCRIPTOR_RANGE srvTable;
+	srvTable.Init(
+		D3D12_DESCRIPTOR_RANGE_TYPE_SRV,//描述符类型SRV
+		1,//描述符表数量
+		0);//描述符所绑定的寄存器槽号
+
+	//创建SRV描述符表作为根参数1
+	CD3DX12_DESCRIPTOR_RANGE uavTable;
+	uavTable.Init(
+		D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
+		1,
+		0);
+
+	//根参数可以是描述符表、根描述符、根常量
+	CD3DX12_ROOT_PARAMETER slotRootParameter[3];
+
+	slotRootParameter[0].InitAsConstants(12, 0);//12个常量，寄存器槽号为0
+	slotRootParameter[1].InitAsDescriptorTable(1, &srvTable);//Range数量为1
+	slotRootParameter[2].InitAsDescriptorTable(1, &uavTable);//Range数量为1
+
+	//根签名由一组根参数构成
+	CD3DX12_ROOT_SIGNATURE_DESC rootSig(
+		3, //根参数的数量
+		slotRootParameter, //根参数指针
+		0, //静态采样器的数量0
+		nullptr, //静态采样器指针为空
+		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+	//用单个寄存器槽来创建一个根签名，该槽位指向一个仅含有单个常量缓冲区的描述符区域
+	ComPtr<ID3DBlob> serializedRootSig = nullptr;
+	ComPtr<ID3DBlob> errorBlob = nullptr;
+	HRESULT hr = D3D12SerializeRootSignature(&rootSig, D3D_ROOT_SIGNATURE_VERSION_1, serializedRootSig.GetAddressOf(), errorBlob.GetAddressOf());
+
+	if (errorBlob != nullptr)
+	{
+		OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+	}
+	ThrowIfFailed(hr);
+
+	ThrowIfFailed(d3dDevice->CreateRootSignature(
+		0,
+		serializedRootSig->GetBufferPointer(),
+		serializedRootSig->GetBufferSize(),
+		IID_PPV_ARGS(&mPostProcessRootSignature)));
+
+
+}
+
 void LandAndWave::BuildPSOs()
 {
 	//不透明物体的PSO（不需要混合）
@@ -603,6 +670,24 @@ void LandAndWave::BuildPSOs()
 	treeBillboardPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
 	ThrowIfFailed(d3dDevice->CreateGraphicsPipelineState(&treeBillboardPsoDesc, IID_PPV_ARGS(&mPSOs["treeBillboard"])));
+
+	D3D12_COMPUTE_PIPELINE_STATE_DESC horizontalBlurPso = {  };
+	horizontalBlurPso.pRootSignature = mPostProcessRootSignature.Get();
+	horizontalBlurPso.CS = {
+		reinterpret_cast<BYTE*>(mShaders["horizontalBlurCS"]->GetBufferPointer()),
+		mShaders["horizontalBlurCS"]->GetBufferSize()
+	};
+	horizontalBlurPso.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+	ThrowIfFailed(d3dDevice->CreateComputePipelineState(&horizontalBlurPso, IID_PPV_ARGS(&mPSOs["horizontalBlur"])))
+
+	D3D12_COMPUTE_PIPELINE_STATE_DESC verticalBlurPso = {  };
+	verticalBlurPso.pRootSignature = mPostProcessRootSignature.Get();
+	verticalBlurPso.CS = {
+		reinterpret_cast<BYTE*>(mShaders["verticalBlurCS"]->GetBufferPointer()),
+		mShaders["verticalBlurCS"]->GetBufferSize()
+	};
+	verticalBlurPso.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+	ThrowIfFailed(d3dDevice->CreateComputePipelineState(&verticalBlurPso, IID_PPV_ARGS(&mPSOs["verticalBlur"])))
 }
 
 void LandAndWave::BuildShadersAndInputLayout()
@@ -625,6 +710,9 @@ void LandAndWave::BuildShadersAndInputLayout()
 	mShaders["treeBillboardVS"] = d3dUtil::CompileShader(L"Shaders\\TreeBillboard.hlsl", nullptr, "VS", "vs_5_0");
 	mShaders["treeBillboardGS"] = d3dUtil::CompileShader(L"Shaders\\TreeBillboard.hlsl", nullptr, "GS", "gs_5_0");
 	mShaders["treeBillboardPS"] = d3dUtil::CompileShader(L"Shaders\\TreeBillboard.hlsl", alphaTestDefines, "PS", "ps_5_0");
+
+	mShaders["horizontalBlurCS"] = d3dUtil::CompileShader(L"Shaders\\Blur.hlsl", nullptr, "HorizontalBlurCS", "cs_5_0");
+	mShaders["verticalBlurCS"] = d3dUtil::CompileShader(L"Shaders\\Blur.hlsl", nullptr, "verticalBlurCS", "cs_5_0");
 
 	mInputLayout =
 	{
@@ -718,7 +806,7 @@ void LandAndWave::DrawRenderItems(vector<RenderItem*>& items)
 		cmdList->IASetIndexBuffer(&ri->geo->GetIbv());
 		cmdList->IASetPrimitiveTopology(ri->primitiveType);
 		
-		CD3DX12_GPU_DESCRIPTOR_HANDLE texHandle(mSrcDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+		CD3DX12_GPU_DESCRIPTOR_HANDLE texHandle(mCsuDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 		texHandle.Offset(ri->mat->diffuseSrvHeapIndex, csuDescriptorSize);
 
 		//设置根描述符,将根描述符与资源绑定
@@ -940,7 +1028,7 @@ void LandAndWave::Draw()
 		true, //RTV对象在堆内存中是连续存放的
 		&dsvHandle);//指向DSV的指针
 
-	ID3D12DescriptorHeap* descriptorHeaps[] = { mSrcDescriptorHeap.Get() };
+	ID3D12DescriptorHeap* descriptorHeaps[] = { mCsuDescriptorHeap.Get() };
 	cmdList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 
 	////设置根签名
@@ -958,9 +1046,20 @@ void LandAndWave::Draw()
 	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::Transparent]);
 	cmdList->SetPipelineState(mPSOs["treeBillboard"].Get());
 	DrawRenderItems(mRenderItemLayer[(int)RenderLayer::AlphaTestedTreeSprites]);
+	
+	//执行离屏模糊计算，得到模糊后的离屏纹理blurMap0
+	mBlurFilter->Execute(cmdList.Get(), mPostProcessRootSignature.Get(), mPSOs["horizontalBlur"].Get(), mPSOs["verticalBlur"].Get(), swapChainBuffer[ref_mCurrentBackBuffer].Get(), 4);
+	//将后台缓冲资源转成“复制目标”
+	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(swapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COPY_DEST));
+	//将模糊处理后的离屏纹理拷贝给后台缓冲区
+	cmdList->CopyResource(swapChainBuffer[ref_mCurrentBackBuffer].Get(), mBlurFilter->Output());
+	//再次转换RT资源，转成呈现
+	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(swapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT));
 
-	//从渲染目标到呈现
-	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(swapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+
+	////从渲染目标到呈现
+	//cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(swapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+	
 	//完成命令的记录关闭命令列表
 	ThrowIfFailed(cmdList->Close());
 
@@ -1093,6 +1192,10 @@ void LandAndWave::OnResize()
 	//构建投影矩阵
 	XMMATRIX p = XMMatrixPerspectiveFovLH(0.25f * 3.1416f, static_cast<float>(mClientWidth) / mClientHeight, 1.0f, 1000.0f);
 	XMStoreFloat4x4(&mProj, p);
+
+	if (mBlurFilter != nullptr) {
+		mBlurFilter->OnResize((UINT)mClientWidth, (UINT)mClientHeight);
+	}
 }
 
 void LandAndWave::Update()
