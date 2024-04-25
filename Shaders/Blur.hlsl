@@ -1,5 +1,7 @@
 cbuffer cbSettings : register(b0)
 {
+    int gBlurRadius; //模糊半径
+
     //11个权重（由于是根常量传过来的，所以不能用数组）
     float w0;
     float w1;
@@ -13,7 +15,6 @@ cbuffer cbSettings : register(b0)
     float w9;
     float w10;
     
-    int gBlurRadius; //模糊半径
 };
 
 static const int gMaxBlurRadius = 5;
