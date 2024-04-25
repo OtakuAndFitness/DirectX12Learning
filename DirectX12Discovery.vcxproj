@@ -141,6 +141,7 @@
     <ClCompile Include="MathHelper.cpp" />
     <ClCompile Include="ProceduralGeometry.cpp" />
     <ClCompile Include="StencilDemo.cpp" />
+    <ClCompile Include="TessellationApp.cpp" />
     <ClCompile Include="Waves.cpp" />
   </ItemGroup>
   <ItemGroup>
