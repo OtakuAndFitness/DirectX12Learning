@@ -71,7 +71,7 @@ int3 dispatchThreadID : SV_DispatchThreadID)//分派ID
 
 }
 
-[numthreads(N, 1, 1)] //线程数定义（纵向）
+[numthreads(1, N, 1)] //线程数定义（纵向）
 void VerticalBlurCS(int3 groupThreadID : SV_GroupThreadID, //组内线程ID
 int3 dispatchThreadID : SV_DispatchThreadID)//分派ID
 {

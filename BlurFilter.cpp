@@ -53,7 +53,7 @@ void BlurFilter::BuildDescriptors()
 	srvDesc.Texture2D.MipLevels = 1;
 
 	md3dDevice->CreateShaderResourceView(mBlurMap0.Get(), &srvDesc, mBlur0CpuSrv);
-	md3dDevice->CreateShaderResourceView(mBlurMap0.Get(), &srvDesc, mBlur1CpuSrv);
+	md3dDevice->CreateShaderResourceView(mBlurMap1.Get(), &srvDesc, mBlur1CpuSrv);
 
 
 	//分别创建两个纹理的UAV
@@ -62,8 +62,8 @@ void BlurFilter::BuildDescriptors()
 	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
 	uavDesc.Texture2D.MipSlice = 0;
 
-	md3dDevice->CreateShaderResourceView(mBlurMap0.Get(), &srvDesc, mBlur0CpuUav);
-	md3dDevice->CreateShaderResourceView(mBlurMap0.Get(), &srvDesc, mBlur1CpuUav);
+	md3dDevice->CreateUnorderedAccessView(mBlurMap0.Get(), nullptr, &uavDesc, mBlur0CpuUav);
+	md3dDevice->CreateUnorderedAccessView(mBlurMap1.Get(), nullptr, &uavDesc, mBlur1CpuUav);
 }
 
 ID3D12Resource* BlurFilter::Output()
@@ -145,7 +145,7 @@ void BlurFilter::Execute(ID3D12GraphicsCommandList* cmdList, ID3D12RootSignature
 		cmdList->SetGraphicsRootDescriptorTable(2, mBlur0GpuUav);//blurMap0作为输出
 
 		UINT numGroupsY = (UINT)ceilf(mHeight / 256.0f);//Y方向的线程组数量
-		cmdList->Dispatch(numGroupsY, mWidth, 1);//分派线程组(之后便执行计算着色器)
+		cmdList->Dispatch(mWidth, numGroupsY, 1);//分派线程组(之后便执行计算着色器)
 		// 将blurMap0离屏纹理资源转换成“可写入”状态
 		cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mBlurMap0.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_GENERIC_READ));
 		// 将blurMap1离屏纹理资源转换成“可读”状态

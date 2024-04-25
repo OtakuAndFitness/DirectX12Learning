@@ -550,7 +550,7 @@ void LandAndWave::BuildPostRootSignature() {
 		1,//描述符表数量
 		0);//描述符所绑定的寄存器槽号
 
-	//创建SRV描述符表作为根参数1
+	//创建UAV描述符表作为根参数1
 	CD3DX12_DESCRIPTOR_RANGE uavTable;
 	uavTable.Init(
 		D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
@@ -712,7 +712,7 @@ void LandAndWave::BuildShadersAndInputLayout()
 	mShaders["treeBillboardPS"] = d3dUtil::CompileShader(L"Shaders\\TreeBillboard.hlsl", alphaTestDefines, "PS", "ps_5_0");
 
 	mShaders["horizontalBlurCS"] = d3dUtil::CompileShader(L"Shaders\\Blur.hlsl", nullptr, "HorizontalBlurCS", "cs_5_0");
-	mShaders["verticalBlurCS"] = d3dUtil::CompileShader(L"Shaders\\Blur.hlsl", nullptr, "verticalBlurCS", "cs_5_0");
+	mShaders["verticalBlurCS"] = d3dUtil::CompileShader(L"Shaders\\Blur.hlsl", nullptr, "VerticalBlurCS", "cs_5_0");
 
 	mInputLayout =
 	{
