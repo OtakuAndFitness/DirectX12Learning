@@ -129,7 +129,7 @@ void BlurFilter::Execute(ID3D12GraphicsCommandList* cmdList, ID3D12RootSignature
 		cmdList->SetPipelineState(horizontalBlurPso);//执行横向计算着色器
 
 		cmdList->SetComputeRootDescriptorTable(1, mBlur0GpuSrv);//blurMap0作为输入
-		cmdList->SetGraphicsRootDescriptorTable(2, mBlur1GpuUav);//blurMap1作为输出
+		cmdList->SetComputeRootDescriptorTable(2, mBlur1GpuUav);//blurMap1作为输出
 
 		UINT numGroupsX = (UINT)ceilf(mWidth / 256.0f);//X方向的线程组数量
 		cmdList->Dispatch(numGroupsX, mHeight, 1);//分派线程组(之后便执行计算着色器)
@@ -142,7 +142,7 @@ void BlurFilter::Execute(ID3D12GraphicsCommandList* cmdList, ID3D12RootSignature
 		cmdList->SetPipelineState(verticalBlurPso);//执行纵向计算着色器
 
 		cmdList->SetComputeRootDescriptorTable(1, mBlur1GpuSrv);//blurMap1作为输入
-		cmdList->SetGraphicsRootDescriptorTable(2, mBlur0GpuUav);//blurMap0作为输出
+		cmdList->SetComputeRootDescriptorTable(2, mBlur0GpuUav);//blurMap0作为输出
 
 		UINT numGroupsY = (UINT)ceilf(mHeight / 256.0f);//Y方向的线程组数量
 		cmdList->Dispatch(mWidth, numGroupsY, 1);//分派线程组(之后便执行计算着色器)
