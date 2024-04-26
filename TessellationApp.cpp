@@ -273,13 +273,44 @@ void Tessellation::BuildShadersAndInputLayout()
 
 void Tessellation::BuildQuadPatchGeometry()
 {
-	vector<Vertex> vertices(4);
+	/*vector<Vertex> vertices(4);
 	vertices[0].Pos = { -10.0f,0.0f,10.0f };
 	vertices[1].Pos = { 10.0f,0.0f,10.0f };
 	vertices[2].Pos = { -10.0f,0.0f,-10.0f };
 	vertices[3].Pos = { 10.0f,0.0f,-10.0f };
 
-	vector<int16_t> indices = { 0,1,2,3 };
+	vector<int16_t> indices = { 0,1,2,3 };*/
+
+	vector<Vertex> vertices(16);//初始化顶点列表
+	//16个控制点坐标
+	//第一行
+	vertices[0].Pos = { -10.0f, -10.0f, +15.0f };
+	vertices[1].Pos = { -5.0f,  0.0f, +15.0f };
+	vertices[2].Pos = { +5.0f,  0.0f, +15.0f };
+	vertices[3].Pos = { +10.0f, 0.0f, +15.0f };
+	//第二行
+	vertices[4].Pos = { -15.0f, 0.0f, +5.0f };
+	vertices[5].Pos = { -5.0f,  0.0f, +5.0f };
+	vertices[6].Pos = { +5.0f,  20.0f, +5.0f };
+	vertices[7].Pos = { +15.0f, 0.0f, +5.0f };
+	//第三行
+	vertices[8].Pos = { -15.0f, 0.0f, -5.0f };
+	vertices[9].Pos = { -5.0f,  0.0f, -5.0f };
+	vertices[10].Pos = { +5.0f,  0.0f, -5.0f };
+	vertices[11].Pos = { +15.0f, 0.0f, -5.0f };
+	//第四行
+	vertices[12].Pos = { -10.0f, 10.0f, -15.0f };
+	vertices[13].Pos = { -5.0f,  0.0f, -15.0f };
+	vertices[14].Pos = { +5.0f,  0.0f, -15.0f };
+	vertices[15].Pos = { +25.0f, 10.0f, -15.0f };
+	array<int16_t, 16> indices =
+	{
+		0, 1, 2, 3,
+		4, 5, 6, 7,
+		8, 9, 10, 11,
+		12, 13, 14, 15
+	};
+
 
 	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
 
@@ -310,6 +341,8 @@ void Tessellation::BuildQuadPatchGeometry()
 
 	mGeometries[geo->Name] = move(geo);
 
+
+
 }
 
 void Tessellation::BuildRenderItem()
@@ -317,7 +350,8 @@ void Tessellation::BuildRenderItem()
 	auto gridItem = make_unique<RenderItem>();
 	gridItem->world = MathHelper::Identity4x4();
 	gridItem->objCBIndex = 0;
-	gridItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST;//4个控制点的patch列表
+	//gridItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST;//4个控制点的patch列表
+	gridItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_16_CONTROL_POINT_PATCHLIST;
 	gridItem->geo = mGeometries["quadPatchGeo"].get();
 	gridItem->mat = mMaterials["whiteMat"].get();
 	gridItem->indexCount = gridItem->geo->DrawArgs["quadPatchGeo"].IndexCount;
