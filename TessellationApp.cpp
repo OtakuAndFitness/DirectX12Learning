@@ -43,7 +43,6 @@ public:
 
 
 private:
-	void BuildDescriptorHeaps();
 	void BuildRootSignature();
 	void BuildPSOs();
 	void BuildShadersAndInputLayout();
@@ -52,7 +51,6 @@ private:
 	void DrawRenderItems(vector<RenderItem*>& items);
 	void BuildFrameResource();
 	void BuildMaterials();
-	void LoadTextures();
 
 	void UpdateCamera();
 	void UpdateObjectCBs();
@@ -72,7 +70,6 @@ private:
 	unordered_map<string, unique_ptr<MeshGeometry>> mGeometries;
 
 	vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
-	vector<D3D12_INPUT_ELEMENT_DESC> mTreeSpriteInputLayout;
 
 	unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOs;
 	ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
@@ -84,9 +81,9 @@ private:
 
 	POINT mLastMousePos;
 
-	float mTheta = 1.5f * XM_PI;
-	float mPhi = XM_PIDIV2 - 0.1f;
-	float mRadius = 50.0f;
+	float mTheta = 1.24f * XM_PI;
+	float mPhi = 0.42f * XM_PIDIV2;
+	float mRadius = 12.0f;
 
 	vector<unique_ptr<RenderItem>> mAllRenderItems;
 	vector<RenderItem*> mRenderItemLayer[(int)RenderLayer::Count];
@@ -96,15 +93,7 @@ private:
 	vector<unique_ptr<FrameResource>> mFrameResource;
 	int mCurrFrameResourceIndex = 0;
 
-	//bool mIsWireframe = false;
-
-	RenderItem* mWavesRenderItem = nullptr;
-
 	unordered_map<string, unique_ptr<Material>> mMaterials;
-
-	unordered_map<string, unique_ptr<Texture>> mTextures;
-
-	ComPtr<ID3D12RootSignature> mPostProcessRootSignature = nullptr;
 };
 
 Tessellation::Tessellation(HINSTANCE hInstance) : D3D12App(hInstance)
@@ -127,9 +116,7 @@ bool Tessellation::Init()
 
 	ThrowIfFailed(cmdList->Reset(cmdAllocator.Get(), nullptr));
 
-	LoadTextures();
 	BuildRootSignature();
-	BuildDescriptorHeaps();
 	BuildShadersAndInputLayout();
 	BuildQuadPatchGeometry();
 	BuildMaterials();
@@ -145,59 +132,6 @@ bool Tessellation::Init()
 
 	return true;
 }
-
-void Tessellation::BuildDescriptorHeaps()
-{
-	const int textureDescriptorCount = 4;
-	const int burDescriptorCount = 4;
-
-	//创建SRV堆
-	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	srvHeapDesc.NumDescriptors = textureDescriptorCount + burDescriptorCount;
-	//srvHeapDesc.NodeMask = 0;
-	ThrowIfFailed(d3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mCsuDescriptorHeap)));
-
-	auto woodCrateTex = mTextures["box"]->resource;
-	auto grassTex = mTextures["land"]->resource;
-	auto lakeTex = mTextures["lake"]->resource;
-	auto treeArrayTex = mTextures["treeArrayTex"]->resource;
-
-	CD3DX12_CPU_DESCRIPTOR_HANDLE handle(mCsuDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
-
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = grassTex->GetDesc().Format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = -1;
-	d3dDevice->CreateShaderResourceView(grassTex.Get(), &srvDesc, handle);
-
-	handle.Offset(1, csuDescriptorSize);
-
-	srvDesc.Format = lakeTex->GetDesc().Format;
-	d3dDevice->CreateShaderResourceView(lakeTex.Get(), &srvDesc, handle);
-
-	handle.Offset(1, csuDescriptorSize);
-
-	srvDesc.Format = woodCrateTex->GetDesc().Format;
-	d3dDevice->CreateShaderResourceView(woodCrateTex.Get(), &srvDesc, handle);
-
-	handle.Offset(1, csuDescriptorSize);
-
-	srvDesc.Format = treeArrayTex->GetDesc().Format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
-	srvDesc.Texture2DArray.ArraySize = treeArrayTex->GetDesc().DepthOrArraySize;
-	srvDesc.Texture2DArray.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = -1;
-	srvDesc.Texture2DArray.FirstArraySlice = 0;
-	d3dDevice->CreateShaderResourceView(treeArrayTex.Get(), &srvDesc, handle);
-
-}
-
-
 
 array<const CD3DX12_STATIC_SAMPLER_DESC, 6> Tessellation::GetStaticSamplers()
 {
@@ -385,7 +319,7 @@ void Tessellation::BuildRenderItem()
 	gridItem->objCBIndex = 0;
 	gridItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST;//4个控制点的patch列表
 	gridItem->geo = mGeometries["quadPatchGeo"].get();
-	gridItem->mat = mMaterials["quadPatchGeo"].get();
+	gridItem->mat = mMaterials["whiteMat"].get();
 	gridItem->indexCount = gridItem->geo->DrawArgs["quadPatchGeo"].IndexCount;
 	gridItem->baseVertexLocation = gridItem->geo->DrawArgs["quadPatchGeo"].BaseVertexLocation;
 	gridItem->startIndexLocation = gridItem->geo->DrawArgs["quadPatchGeo"].StartIndexLocation;
@@ -413,9 +347,6 @@ void Tessellation::DrawRenderItems(vector<RenderItem*>& items)
 		cmdList->IASetIndexBuffer(&ri->geo->GetIbv());
 		cmdList->IASetPrimitiveTopology(ri->primitiveType);
 
-		CD3DX12_GPU_DESCRIPTOR_HANDLE texHandle(mCsuDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-		texHandle.Offset(ri->mat->diffuseSrvHeapIndex, csuDescriptorSize);
-
 		//设置根描述符,将根描述符与资源绑定
 		auto objCBAddress = objCB->GetGPUVirtualAddress();
 		auto matCBAddress = matCB->GetGPUVirtualAddress();
@@ -423,7 +354,6 @@ void Tessellation::DrawRenderItems(vector<RenderItem*>& items)
 		objCBAddress += ri->objCBIndex * objConstSize;
 		matCBAddress += ri->mat->matCBIndex * matConstSize;
 
-		cmdList->SetGraphicsRootDescriptorTable(0, texHandle);
 		cmdList->SetGraphicsRootConstantBufferView(1, //寄存器槽号
 			objCBAddress);//子资源地址
 		//绘制顶点（通过索引缓冲区绘制）
@@ -450,75 +380,15 @@ void Tessellation::BuildFrameResource()
 
 void Tessellation::BuildMaterials()
 {
-	//定义陆地的材质
-	auto land = make_unique<Material>();//Material指针
-	land->name = "land";
-	land->matCBIndex = 0;
-	land->diffuseSrvHeapIndex = 0;
-	land->diffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);//陆地的反照率（颜色）
-	land->fresnelR0 = XMFLOAT3(0.01f, 0.01f, 0.01f);//陆地的R0
-	land->roughness = 0.125f;//陆地的粗糙度（归一化后的）
+	auto whiteMat = make_unique<Material>();
+	whiteMat->name = "whiteMat";
+	whiteMat->matCBIndex = 0;
+	whiteMat->diffuseSrvHeapIndex = 0;
+	whiteMat->diffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	whiteMat->fresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
+	whiteMat->roughness = 0.5f;
 
-	//定义湖水的材质
-	auto lake = make_unique<Material>();
-	lake->name = "lake";
-	lake->matCBIndex = 1;
-	lake->diffuseSrvHeapIndex = 1;
-	lake->diffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f);//湖水的反照率（颜色）
-	lake->fresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);//湖水的R0（因为没有透明度和折射率，所以这里给0.1）
-	lake->roughness = 0.0f;//湖水的粗糙度（归一化后的）
-
-	auto box = make_unique<Material>();
-	box->name = "wood";
-	box->matCBIndex = 2;
-	box->diffuseSrvHeapIndex = 2;
-	box->diffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-	box->fresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
-	box->roughness = 0.25f;
-
-	auto treeBillboard = make_unique<Material>();
-	treeBillboard->name = "treeBillboardMat";
-	treeBillboard->matCBIndex = 3;
-	treeBillboard->diffuseSrvHeapIndex = 3;
-	treeBillboard->diffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-	treeBillboard->fresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
-	treeBillboard->roughness = 0.8f;
-
-	mMaterials["land"] = move(land);
-	mMaterials["lake"] = move(lake);
-	mMaterials["box"] = move(box);
-	mMaterials[treeBillboard->name] = move(treeBillboard);
-}
-
-void Tessellation::LoadTextures()
-{
-	//板条箱纹理
-	auto woodCrateTex = make_unique<Texture>();
-	woodCrateTex->name = "fenceTex";
-	woodCrateTex->fileName = L"Textures/WireFence.dds";
-	ThrowIfFailed(CreateDDSTextureFromFile12(d3dDevice.Get(), cmdList.Get(), woodCrateTex->fileName.c_str(), woodCrateTex->resource, woodCrateTex->uploadHeap));
-
-	//草地纹理
-	auto grassTex = make_unique<Texture>();
-	grassTex->name = "grassTex";
-	grassTex->fileName = L"Textures/grass.dds";
-	ThrowIfFailed(CreateDDSTextureFromFile12(d3dDevice.Get(), cmdList.Get(), grassTex->fileName.c_str(), grassTex->resource, grassTex->uploadHeap));
-
-	//湖水纹理
-	auto lakeTex = make_unique<Texture>();
-	lakeTex->name = "lakeTex";
-	lakeTex->fileName = L"Textures/water1.dds";
-	ThrowIfFailed(CreateDDSTextureFromFile12(d3dDevice.Get(), cmdList.Get(), lakeTex->fileName.c_str(), lakeTex->resource, lakeTex->uploadHeap));
-
-	auto treeArrayTex = make_unique<Texture>();
-	treeArrayTex->name = "treeArrayTex";
-	treeArrayTex->fileName = L"Textures/treeArray2.dds";
-	ThrowIfFailed(CreateDDSTextureFromFile12(d3dDevice.Get(), cmdList.Get(), treeArrayTex->fileName.c_str(), treeArrayTex->resource, treeArrayTex->uploadHeap));
-
-	mTextures["box"] = move(woodCrateTex);
-	mTextures["land"] = move(grassTex);
-	mTextures["lake"] = move(lakeTex);
-	mTextures[treeArrayTex->name] = move(treeArrayTex);
+	mMaterials[whiteMat->name] = move(whiteMat);
 }
 
 void Tessellation::Draw()
@@ -541,7 +411,7 @@ void Tessellation::Draw()
 	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(swapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtvHeap->GetCPUDescriptorHandleForHeapStart(), ref_mCurrentBackBuffer, rtvDescriptorSize);
-	cmdList->ClearRenderTargetView(rtvHandle, Colors::LightBlue, 0, nullptr); //清除RT背景色为淡蓝，并且不设置裁剪矩形
+	cmdList->ClearRenderTargetView(rtvHandle, Colors::Gray, 0, nullptr); //清除RT背景色为淡蓝，并且不设置裁剪矩形
 	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = dsvHeap->GetCPUDescriptorHandleForHeapStart();
 	cmdList->ClearDepthStencilView(dsvHandle, //DSV描述符句柄
 		D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, //Flag
@@ -554,9 +424,6 @@ void Tessellation::Draw()
 		&rtvHandle, //指向RTV数组的指针
 		true, //RTV对象在堆内存中是连续存放的
 		&dsvHandle);//指向DSV的指针
-
-	ID3D12DescriptorHeap* descriptorHeaps[] = { mCsuDescriptorHeap.Get() };
-	cmdList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 
 	////设置根签名
 	cmdList->SetGraphicsRootSignature(mRootSignature.Get());

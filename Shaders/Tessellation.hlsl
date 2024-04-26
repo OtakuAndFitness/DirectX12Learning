@@ -18,14 +18,6 @@ cbuffer cbPerObject : register(b0)
     float4x4 gTexTransform; //UV顶点变换矩阵
 };
 
-cbuffer cbMaterial : register(b2)
-{
-    float4 gDiffuseAlbedo; //材质反照率
-    float3 gFresnelR0; //RF(0)值，即材质的反射属性
-    float gRoughness; //材质的粗糙度
-    float4x4 gMatTransform; //UV动画变换矩阵
-};
-
 cbuffer cbPass : register(b1)
 {
     float4x4 gViewProj;
@@ -40,6 +32,14 @@ cbuffer cbPass : register(b1)
     float2 pad2;
 };
 
+cbuffer cbMaterial : register(b2)
+{
+    float4 gDiffuseAlbedo; //材质反照率
+    float3 gFresnelR0; //RF(0)值，即材质的反射属性
+    float gRoughness; //材质的粗糙度
+    float4x4 gMatTransform; //UV动画变换矩阵
+};
+
 struct VertexIn
 {
     float3 PosL : POSITION;
@@ -50,11 +50,11 @@ struct VertexOut
     float3 PosL : POSITION;
 
 };
-
+//曲面细分因子
 struct PatchTess
 {
-    float edgeTess[4] : SV_TessFactor;
-    float insideTess[2] : SV_InsideTessFactor;
+    float edgeTess[4] : SV_TessFactor; //4条边的细分因子
+    float insideTess[2] : SV_InsideTessFactor; //内部的细分因子（u和v两个方向）
 };
 
 struct HullOut
@@ -76,18 +76,22 @@ VertexOut VS(VertexIn vin)
     return vout;
 }
 
-PatchTess ConstantHS(InputPatch<VertexOut, 4> patch, uint patchID : SV_PrimitiveID)
+PatchTess ConstantHS(InputPatch<VertexOut, 4> patch, //输入的面片控制点
+                                    uint patchID : SV_PrimitiveID)//面片图元ID
 {
     PatchTess pt;
-    
+    //计算出面片的中点
     float3 centerL = (patch[0].PosL + patch[1].PosL + patch[2].PosL + patch[3].PosL) * 0.25f;
+    //将中心点从模型空间转到世界空间下
     float3 centerW = mul(float4(centerL, 1.0f), gWorld).xyz;
+    //计算摄像机和面片的距离
     float d = distance(centerW, gEyePosW);
-    
+    //LOD的变化区间（最大和最小区间）
     float d0 = 20.0f;
     float d1 = 100.0f;
+     //随着距离变化，计算细分因子,注意先减后除的括号！！！！！
     float tess = 64.0f * saturate((d1 - d) / (d1 - d0));
-    
+    //赋值所有边和内部的细分因子
     pt.edgeTess[0] = tess;
     pt.edgeTess[1] = tess;
     pt.edgeTess[2] = tess;
@@ -99,21 +103,25 @@ PatchTess ConstantHS(InputPatch<VertexOut, 4> patch, uint patchID : SV_Primitive
 
 }
 
-[domain("quad")]
-[partitioning("integer")]
-[outputtopology("triangle_cw")]
-[outputcontrolpoints(4)]
-[patchconstantfunc("ConstantHS")]
-[maxtessfactor(64.0f)]
-HullOut HS(InputPatch<VertexOut, 4> patch, uint i : SV_OutputControlPointID, uint patchID : SV_PrimitiveID)
+[domain("quad")] //传入的patch为四边形面片
+[partitioning("integer")] //细分模式为整型
+[outputtopology("triangle_cw")] //三角形绕序为顺时针
+[outputcontrolpoints(4)] //HS执行次数
+[patchconstantfunc("ConstantHS")] //所执行的“常量外壳着色器名”
+[maxtessfactor(64.0f)] //细分因子最大值
+HullOut HS(InputPatch<VertexOut, 4> patch, //控制点
+                    uint i : SV_OutputControlPointID, //正被执行的控制点索引
+                    uint patchID : SV_PrimitiveID)//图元索引
 {
     HullOut hout;
-    hout.PosL = patch[i].PosL;
+    hout.PosL = patch[i].PosL; //仅传值，控制点数量不变
     return hout;
 }
 
 [domain("quad")]
-DomainOut DS(PatchTess pt, float2 uv : SV_DomainLocation, const OutputPatch<HullOut, 4> patch)
+DomainOut DS(PatchTess pt, //细分因子
+                        float2 uv : SV_DomainLocation, //细分后顶点UV（位置UV，非纹理UV）
+                        const OutputPatch<HullOut, 4> patch)//patch的4个控制点
 {
     DomainOut dout;
     
@@ -129,8 +137,8 @@ DomainOut DS(PatchTess pt, float2 uv : SV_DomainLocation, const OutputPatch<Hull
     return dout;
 }
 
-float4 PS(VertexOut pin) : SV_Target
+float4 PS(DomainOut pin) : SV_Target
 {
-    return float4(1.0f, 0.0f, 0.0f, 1.0f);
+    return gDiffuseAlbedo;
     
 }
