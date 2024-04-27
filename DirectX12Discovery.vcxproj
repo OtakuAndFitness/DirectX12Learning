@@ -131,6 +131,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="BlurFilter.cpp" />
+    <ClCompile Include="Camera.cpp" />
     <ClCompile Include="D3D12App.cpp" />
     <ClCompile Include="D3D12InitApp.cpp" />
     <ClCompile Include="DDSTextureLoader.cpp" />
@@ -146,6 +147,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BlurFilter.h" />
+    <ClInclude Include="Camera.h" />
     <ClInclude Include="D3D12App.h" />
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="DDSTextureLoader.h" />

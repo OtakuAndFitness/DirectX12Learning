@@ -398,6 +398,11 @@ void D3D12App::OnResize() {
 	FlushCmdQueue();
 }
 
+float D3D12App::AspectRatio() const
+{
+	return static_cast<float>(mClientWidth) / mClientHeight;
+}
+
 int D3D12App::Run() {
 	//消息循环
 	//定义消息结构体

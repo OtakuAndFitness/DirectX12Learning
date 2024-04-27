@@ -9,7 +9,7 @@ FrameResource::FrameResource(ID3D12Device* device, UINT passCount, UINT objCount
 
 	wavesVB = make_unique<UploadBuffer<Vertex>>(device, wavesVertCount, false);//一个顶点即一个子缓冲区
 
-	matCB = make_unique<UploadBuffer<MatConstants>>(device, matCount, true);
+	matSB = make_unique<UploadBuffer<MaterialData>>(device, matCount, true);
 }
 
 FrameResource::FrameResource(ID3D12Device* device, UINT passCount, UINT objCount, UINT matCount)
@@ -18,7 +18,7 @@ FrameResource::FrameResource(ID3D12Device* device, UINT passCount, UINT objCount
 
 	objCB = make_unique<UploadBuffer<ObjectConstants>>(device, objCount, true);
 	passCB = make_unique<UploadBuffer<PassConstants>>(device, passCount, true);
-	matCB = make_unique<UploadBuffer<MatConstants>>(device, matCount, true);
+	matSB = make_unique<UploadBuffer<MaterialData>>(device, matCount, false);
 }
 
 FrameResource::~FrameResource()

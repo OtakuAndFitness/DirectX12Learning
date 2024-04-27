@@ -13,7 +13,21 @@
 
 #include "LightingUtils.hlsl"
 
-Texture2D gDiffuseMap : register(t0); //所有漫反射贴图
+struct MaterialData
+{
+    float4 gDiffuseAlbedo;
+    float3 gFresnelR0;
+    float gRoughness;
+    float4x4 gMatTransform;
+    uint gDiffuseMapIndex;
+    uint gMatPad0;
+    uint gMatPad1;
+    uint gMatPad2;
+
+};
+
+Texture2D gDiffuseMap[4] : register(t0); //所有漫反射贴图
+StructuredBuffer<MaterialData> gMaterialData : register(t0, space1);
 
 //6个不同类型的采样器
 SamplerState gSamPointWrap : register(s0);
@@ -28,15 +42,20 @@ cbuffer cbPerObject : register(b0)
 {
     float4x4 gWorld;
     float4x4 gTexTransform; //UV顶点变换矩阵
+    uint gMaterialDataIndex;
+    uint gObjPad0;
+    uint gObjPad1;
+    uint gObjPad2;
+
 };
 
-cbuffer cbMaterial : register(b2)
-{
-    float4 gDiffuseAlbedo; //材质反照率
-    float3 gFresnelR0; //RF(0)值，即材质的反射属性
-    float gRoughness; //材质的粗糙度
-    float4x4 gMatTransform; //UV动画变换矩阵
-};
+//cbuffer cbMaterial : register(b2)
+//{
+//    float4 gDiffuseAlbedo; //材质反照率
+//    float3 gFresnelR0; //RF(0)值，即材质的反射属性
+//    float gRoughness; //材质的粗糙度
+//    float4x4 gMatTransform; //UV动画变换矩阵
+//};
 
 cbuffer cbPass : register(b1)
 {
@@ -73,6 +92,8 @@ struct VertexOut
 VertexOut VS(VertexIn vin)
 {
     VertexOut vout;
+    
+    MaterialData matData = gMaterialData[gMaterialDataIndex];
 	
     float3 posW = mul(float4(vin.PosL, 1.0F), gWorld).xyz;
     vout.PosW = posW;
@@ -83,14 +104,20 @@ VertexOut VS(VertexIn vin)
 	
     //vout.Color = vin.Color;
     float4 texCoord = mul(float4(vin.TexCoord, 0.0f, 1.0f), gTexTransform);
-    vout.uv = mul(texCoord, gMatTransform).xy;
+    vout.uv = mul(texCoord, matData.gMatTransform).xy;
     
     return vout;
 }
 
 float4 PS(VertexOut pin) : SV_Target
 {
-    float4 diffuseAlbedo = gDiffuseMap.Sample(gSamAnisotropicWarp, pin.uv) * gDiffuseAlbedo;
+    MaterialData matData = gMaterialData[gMaterialDataIndex];
+    float4 diffuseAlbedo = matData.gDiffuseAlbedo;
+    float3 fresnelR0 = matData.gFresnelR0;
+    float roughtness = matData.gRoughness;
+    uint diffuseTexIndex = matData.gDiffuseMapIndex;
+    
+    diffuseAlbedo *= gDiffuseMap[diffuseTexIndex].Sample(gSamAnisotropicWarp, pin.uv);
     
 #ifdef ALPHA_TEST
     clip(diffuseAlbedo.a - 0.1f);
@@ -102,7 +129,7 @@ float4 PS(VertexOut pin) : SV_Target
     float distPosToEye = length(worldPosToEye);
     float3 worldView = worldPosToEye / distPosToEye;
     
-    Material mat = { diffuseAlbedo, gFresnelR0, gRoughness };
+    Material mat = { diffuseAlbedo, fresnelR0, roughtness };
     float3 shadowFactor = 1.0f;
     float4 directLight = ComputeLighting(gLights, mat, pin.PosW, worldNormal, worldView, shadowFactor);
     float4 ambient = gAmbientLight * diffuseAlbedo;

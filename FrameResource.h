@@ -23,6 +23,11 @@ struct ObjectConstants
 	XMFLOAT4X4 world = MathHelper::Identity4x4();
 	XMFLOAT4X4 texTransform = MathHelper::Identity4x4();
 
+	UINT materialIndex = 0;
+	UINT objPad0;
+	UINT objPad1;
+	UINT objPad2;
+
 };
 
 struct PassConstants {
@@ -39,11 +44,24 @@ struct PassConstants {
 	XMFLOAT2 pad2 = { 0.0f, 0.0f };//占位
 };
 
-struct MatConstants {
+//struct MatConstants {
+//	XMFLOAT4 diffuseAlbedo = { 1.0f,1.0f,1.0f,1.0f };
+//	XMFLOAT3 fresnelR0 = { 0.01f,0.01f, 0.01f };
+//	float roughness = 0.25f;
+//	XMFLOAT4X4 matTransform = MathHelper::Identity4x4();
+//};
+
+struct MaterialData {
 	XMFLOAT4 diffuseAlbedo = { 1.0f,1.0f,1.0f,1.0f };
 	XMFLOAT3 fresnelR0 = { 0.01f,0.01f, 0.01f };
 	float roughness = 0.25f;
 	XMFLOAT4X4 matTransform = MathHelper::Identity4x4();
+
+	UINT diffuseMapIndex = 0;
+	UINT matPad0;
+	UINT matPad1;
+	UINT matPad2;
+
 };
 
 struct FrameResource
@@ -60,7 +78,7 @@ struct FrameResource
 		unique_ptr<UploadBuffer<ObjectConstants>> objCB = nullptr;
 		unique_ptr<UploadBuffer<PassConstants>> passCB = nullptr;
 		unique_ptr<UploadBuffer<Vertex>> wavesVB = nullptr;
-		unique_ptr<UploadBuffer<MatConstants>> matCB = nullptr;
+		unique_ptr<UploadBuffer<MaterialData>> matSB = nullptr;
 		UINT64 fenceCPU = 0;
 
 };

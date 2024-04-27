@@ -45,6 +45,8 @@ public:
 
 	virtual void OnResize();
 
+	float AspectRatio()const;
+
 protected:
 	virtual void OnMouseDown(WPARAM btnState, int x, int y) { }
 	virtual void OnMouseUp(WPARAM btnState, int x, int y) { }
