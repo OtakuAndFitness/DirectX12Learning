@@ -31,56 +31,49 @@ struct RenderItem {
 class D3D12InitApp : public D3D12App {
 public:
 	D3D12InitApp(HINSTANCE hInstance);
+	D3D12InitApp(const D3D12InitApp& rhs) = delete;
+	D3D12InitApp& operator=(const D3D12InitApp& rhs) = delete;
 	~D3D12InitApp();
+
 	virtual bool Init()override;
+
+private:
+	virtual void OnResize()override;
 	virtual void Update()override;
+	virtual void Draw()override;
 
 	virtual void OnMouseDown(WPARAM btnState, int x, int y)override;
 	virtual void OnMouseUp(WPARAM btnState, int x, int y)override;
 	virtual void OnMouseMove(WPARAM btnState, int x, int y)override;
-	
-
-private:
-	void LoadTextures();
-	void BuildGeometry();
-	void BuildDescriptorHeaps();
-	//void BuildConstantBuffers();
-	void BuildRootSignature();
-	void BuildPSO();
-	void BuildShadersAndInputLayout();
-	void BuildMaterials();
-	void BuildRenderItem();
-	//void CreateConstantBufferViews();
-	void DrawRenderItems();
-	void BuildFrameResource();
-	virtual void Draw()override;
-	virtual void OnResize()override;
 
 	void OnKeyboardInput();
 	void UpdateObjectCBs();
 	void UpdateMaterialBuffer();
 	void UpdateMainPassCB();
 
+	void LoadTextures();
+	void BuildRootSignature();
+	void BuildDescriptorHeaps();
+	void BuildShadersAndInputLayout();
+	void BuildGeometry();
+	void BuildPSO();
+	void BuildFrameResource();
+	void BuildMaterials();
+	void BuildRenderItem();
+	void DrawRenderItems();
+
+	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers();
+
+
 private:
 	ComPtr<ID3D12DescriptorHeap> mSrvHeap = nullptr;
-	//定义并获得物体的常量缓冲区，然后得到其首地址
-	unique_ptr<UploadBuffer<ObjectConstants>> mObjectCB = nullptr;
-	unique_ptr<UploadBuffer<PassConstants>> mPassCB = nullptr;
 	ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
 	vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
-	ComPtr<ID3DBlob> mvsByteCode = nullptr;
-	ComPtr<ID3DBlob> mpsByteCode = nullptr;
-	ComPtr<ID3D12PipelineState> mPSO = nullptr;
-
-	XMFLOAT4X4 mWorld = MathHelper::Identity4x4();
-	XMFLOAT4X4 mView = MathHelper::Identity4x4();
-	XMFLOAT4X4 mProj = MathHelper::Identity4x4();
+	ComPtr<ID3DBlob> mvsByteCode;
+	ComPtr<ID3DBlob> mpsByteCode;
+	ComPtr<ID3D12PipelineState> mPSO;
 
 	POINT mLastMousePos;
-
-	float mTheta = 1.5f * XM_PI;
-	float mPhi = XM_PIDIV4;
-	float mRadius = 5.0f;
 
 	vector<unique_ptr<RenderItem>> mAllRenderItems;
 	vector<RenderItem*> renderItems;
@@ -89,16 +82,13 @@ private:
 
 	FrameResource* mCurrFrameResource = nullptr;
 	int mCurrFrameResourceIndex = 0;
-	UINT64 mCurrentFence = 0;
+	//UINT64 mCurrentFence = 0;//because of this, OnResize() function called then the window freezes
 
 	Camera mCamera;
 
 	unordered_map<string, unique_ptr<Material>> mMaterials;
 	unordered_map<string, unique_ptr<Texture>> mTextures;
 	unordered_map<string, unique_ptr<MeshGeometry>> mGeometries;
-
-	array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers();
-
 };
 
 D3D12InitApp::D3D12InitApp(HINSTANCE hInstance) : D3D12App(hInstance)
