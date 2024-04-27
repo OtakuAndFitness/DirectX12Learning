@@ -2,8 +2,6 @@
 #include "FrameResource.h"
 #include "Camera.h"
 
-using namespace DirectX;
-
 struct RenderItem {
 	RenderItem() = default;
 

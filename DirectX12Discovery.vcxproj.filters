@@ -48,14 +48,14 @@
     <ClCompile Include="MathHelper.cpp">
       <Filter>资源文件</Filter>
     </ClCompile>
-    <ClCompile Include="BlurFilter.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="TessellationApp.cpp">
       <Filter>资源文件</Filter>
     </ClCompile>
+    <ClCompile Include="BlurFilter.cpp">
+      <Filter>资源文件</Filter>
+    </ClCompile>
     <ClCompile Include="Camera.cpp">
-      <Filter>源文件</Filter>
+      <Filter>资源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
