@@ -90,4 +90,6 @@ protected:
 	bool mMinimized = false; 
 	bool mMaximized = false; 
 	bool mResizing = false;
+
+	wstring mMainWndCaption = L"d3d12 App";
 };

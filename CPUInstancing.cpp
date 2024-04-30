@@ -343,6 +343,9 @@ void CPUInstancing::OnKeyboardInput()
 
 void CPUInstancing::UpdateInstanceData()
 {
+	XMMATRIX view = mCamera.GetView();
+	XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(view), view);
+
 	auto currInstanceBuffer = mCurrFrameResource->instanceBuffer.get();
 
 	for (auto& e : mAllRenderItems) {
@@ -355,11 +358,33 @@ void CPUInstancing::UpdateInstanceData()
 			XMMATRIX texTransform = XMLoadFloat4x4(&instanceData[i].texTransform);
 			XMStoreFloat4x4(&data.world, XMMatrixTranspose(world));
 			XMStoreFloat4x4(&data.texTransform, XMMatrixTranspose(texTransform));
-			data.materialIndex = instanceData[i].materialIndex;
-			currInstanceBuffer->CopyData(visibleInstanceCount++, data);
+			
+			XMVECTOR worldDeterminant = XMMatrixDeterminant(world);
+			XMMATRIX invWorld = XMMatrixInverse(&worldDeterminant, world);
+			XMMATRIX viewToLocal = XMMatrixMultiply(invView, invWorld);
+
+			BoundingFrustum localSpaceFrustum;
+			localSpaceFrustum.CreateFromMatrix(localSpaceFrustum, mCamera.GetProj());
+			localSpaceFrustum.Transform(localSpaceFrustum, viewToLocal);
+
+			if (localSpaceFrustum.Contains(e->bounds) != DISJOINT || mFrustumCullingEnbaled == false) {
+				InstanceData data;
+				XMStoreFloat4x4(&data.world, XMMatrixTranspose(world));
+				XMStoreFloat4x4(&data.texTransform, XMMatrixTranspose(texTransform));
+				data.materialIndex = instanceData[i].materialIndex;
+				currInstanceBuffer->CopyData(visibleInstanceCount++, data);
+			}
+			
+			//data.materialIndex = instanceData[i].materialIndex;
+			//currInstanceBuffer->CopyData(visibleInstanceCount++, data);
 		}
 
 		e->instanceCount = visibleInstanceCount;
+
+		wostringstream outs;
+		outs.precision(6);
+		outs << L"Instancing and Culling Demo" << L"    " << e->instanceCount << L" objects visible out of " << e->instances.size();
+		mMainWndCaption = outs.str();
 	}
 }
 

@@ -144,7 +144,7 @@ bool D3D12App::InitWindow() {
 	int height = R.bottom - R.top;
 
 	//创建窗口
-	mhMainWnd = CreateWindow(L"MainWindow", L"DXInitailize", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, width, height, 0, 0, mhAppInst, 0);
+	mhMainWnd = CreateWindow(L"MainWindow", mMainWndCaption.c_str(), WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, width, height, 0, 0, mhAppInst, 0);
 
 	//窗口创建失败
 	if (!mhMainWnd) {
@@ -365,7 +365,7 @@ void D3D12App::CalculateFrameState() {
 		wstring fpsStr = to_wstring(fps);
 		wstring mspfStr = to_wstring(mspf);
 
-		wstring windowText = L"D3D12Init    fps:" + fpsStr + L"    " + L"mspf:" + mspfStr;
+		wstring windowText = mMainWndCaption + L"    " + L"fps:" + fpsStr + L"    " + L"mspf:" + mspfStr;
 		SetWindowText(mhMainWnd, windowText.c_str());
 		//为计算下一组帧数值而重置
 		frameCnt = 0;
