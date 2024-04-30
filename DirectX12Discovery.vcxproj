@@ -132,6 +132,7 @@
   <ItemGroup>
     <ClCompile Include="BlurFilter.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="CPUInstancing.cpp" />
     <ClCompile Include="D3D12App.cpp" />
     <ClCompile Include="D3D12InitApp.cpp" />
     <ClCompile Include="DDSTextureLoader.cpp" />

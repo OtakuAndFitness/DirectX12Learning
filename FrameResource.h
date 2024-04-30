@@ -61,14 +61,24 @@ struct MaterialData {
 	UINT matPad0;
 	UINT matPad1;
 	UINT matPad2;
+};
 
+struct InstanceData {
+	XMFLOAT4X4 world = MathHelper::Identity4x4();
+	XMFLOAT4X4 texTransform = MathHelper::Identity4x4();
+
+	UINT materialIndex = 0;
+	UINT objPad0;
+	UINT objPad1;
+	UINT objPad2;
 };
 
 struct FrameResource
 {
 	public:
 		FrameResource(ID3D12Device* device, UINT passCount, UINT objCount, UINT matCount, UINT wavesVertCount);
-		FrameResource(ID3D12Device* device, UINT passCount, UINT objCount, UINT matCount);
+		//FrameResource(ID3D12Device* device, UINT passCount, UINT objCount, UINT matCount);
+		FrameResource::FrameResource(ID3D12Device* device, UINT passCount, UINT maxInstanceCount, UINT matCount);
 		FrameResource(const FrameResource& rhs) = delete;
 		FrameResource& operator = (const FrameResource& rhs) = delete;
 		~FrameResource();
@@ -78,7 +88,9 @@ struct FrameResource
 		unique_ptr<UploadBuffer<ObjectConstants>> objCB = nullptr;
 		unique_ptr<UploadBuffer<PassConstants>> passCB = nullptr;
 		unique_ptr<UploadBuffer<Vertex>> wavesVB = nullptr;
-		unique_ptr<UploadBuffer<MaterialData>> matSB = nullptr;
+		unique_ptr<UploadBuffer<MaterialData>> materialBuffer = nullptr;
+		unique_ptr<UploadBuffer<InstanceData>> instanceBuffer = nullptr;
+
 		UINT64 fenceCPU = 0;
 
 };

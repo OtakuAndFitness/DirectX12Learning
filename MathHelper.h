@@ -58,4 +58,6 @@ public:
 
     static const float Pi;
 
+    static const float Infinity;
+
 };
