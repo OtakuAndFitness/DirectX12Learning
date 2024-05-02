@@ -433,6 +433,7 @@ void Picking::UpdateObjectCBs()
 			ObjectConstants objConstants;
 			XMStoreFloat4x4(&objConstants.world, XMMatrixTranspose(world));
 			XMStoreFloat4x4(&objConstants.texTransform, XMMatrixTranspose(texTransform));
+			objConstants.materialIndex = e->mat->matCBIndex;
 
 			currObjectCB->CopyData(e->objCBIndex, objConstants);
 
@@ -656,12 +657,13 @@ void Picking::BuildGeometry()
 	geo->IndexFormat = DXGI_FORMAT_R32_UINT;
 	geo->IndexBufferByteSize = ibByteSize;
 
-	SubmeshGeometry skullMesh;
-	skullMesh.IndexCount = (UINT)indices.size();
-	skullMesh.StartIndexLocation = 0;
-	skullMesh.BaseVertexLocation = 0;
+	SubmeshGeometry subMesh;
+	subMesh.IndexCount = (UINT)indices.size();
+	subMesh.StartIndexLocation = 0;
+	subMesh.BaseVertexLocation = 0;
+	subMesh.Bounds = bounds;
 
-	geo->DrawArgs[geo->Name] = skullMesh;
+	geo->DrawArgs[geo->Name] = subMesh;
 
 	mGeometries[geo->Name] = move(geo);
 }

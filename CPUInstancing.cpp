@@ -695,6 +695,7 @@
 //	skullMesh.IndexCount = (UINT)indices.size();
 //	skullMesh.StartIndexLocation = 0;
 //	skullMesh.BaseVertexLocation = 0;
+//  skullMesh.Bounds = bounds;
 //
 //	geo->DrawArgs[geo->Name] = skullMesh;
 //
