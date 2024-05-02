@@ -60,6 +60,9 @@
     <ClCompile Include="CPUInstancing.cpp">
       <Filter>资源文件</Filter>
     </ClCompile>
+    <ClCompile Include="Picking.cpp">
+      <Filter>资源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="d3dx12.h">

@@ -155,15 +155,15 @@ XMMATRIX Camera::GetView() const
 	return XMLoadFloat4x4(&mView);
 }
 
-XMMATRIX Camera::GetProj() const
-{
-	return XMLoadFloat4x4(&mProj);
-}
-
 XMFLOAT4X4 Camera::GetView4x4f() const
 {
 	assert(!mViewDirty);
 	return mView;
+}
+
+XMMATRIX Camera::GetProj() const
+{
+	return XMLoadFloat4x4(&mProj);
 }
 
 XMFLOAT4X4 Camera::GetProj4x4f() const
