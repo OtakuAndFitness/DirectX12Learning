@@ -58,7 +58,8 @@ float4 PS(VertexOut pin) : SV_Target
     float distPosToEye = length(worldPosToEye);
     float3 worldView = worldPosToEye / distPosToEye;
     
-    Material mat = { diffuseAlbedo, fresnelR0, roughtness };
+    const float shininess = 1.0f - roughtness;
+    Material mat = { diffuseAlbedo, fresnelR0, shininess };
     float3 shadowFactor = 1.0f;
     float4 directLight = ComputeLighting(gLights, mat, pin.PosW, worldNormal, worldView, shadowFactor);
     float4 ambient = gAmbientLight * diffuseAlbedo;
@@ -67,7 +68,7 @@ float4 PS(VertexOut pin) : SV_Target
     float3 r = reflect(-worldPosToEye, worldNormal);
     float4 reflectionCol = gCubeMap.Sample(gSamLinearWrap, r);
     float3 fresnelFactor = SchlickFresnel(fresnelR0, worldNormal, r);
-    finalCol.rgb += (1.0 - roughtness) * fresnelFactor * reflectionCol.rgb;
+    finalCol.rgb += shininess * fresnelFactor * reflectionCol.rgb;
     
 #ifdef FOG
     float s = saturate((distPosToEye - gFogStart) / gFogRange);

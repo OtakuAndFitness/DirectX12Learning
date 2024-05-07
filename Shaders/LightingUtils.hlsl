@@ -27,7 +27,7 @@ float CalcAttenuation(float d, float falloffEnd, float falloffStart)
 float3 SchlickFresnel(float3 R0, float3 normal, float3 lightVector)
 {
     //根据schlick function计算出入射光线被反射的百分比
-    float3 reflectPercent = R0 + (1.0f - R0) * pow(1 - saturate(dot(normal, lightVector)), 5.0f);
+    float3 reflectPercent = R0 + (1.0f - R0) * pow(1.0f - saturate(dot(normal, lightVector)), 5.0f);
     return reflectPercent;
 
 }
