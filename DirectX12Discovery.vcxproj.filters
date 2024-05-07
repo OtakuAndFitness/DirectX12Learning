@@ -63,6 +63,9 @@
     <ClCompile Include="Picking.cpp">
       <Filter>资源文件</Filter>
     </ClCompile>
+    <ClCompile Include="CubeMap.cpp">
+      <Filter>资源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="d3dx12.h">
