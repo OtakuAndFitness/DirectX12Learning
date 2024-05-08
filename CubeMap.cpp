@@ -1,6 +1,9 @@
 #include "D3D12App.h"
 #include "FrameResource.h"
 #include "Camera.h"
+#include "CubeRenderTarget.h"
+
+const UINT CubeMapSize = 512;
 
 struct RenderItem {
 	RenderItem() = default;
@@ -30,6 +33,7 @@ struct RenderItem {
 
 enum class RenderLayer : int {
 	Opaque = 0,
+	OpaqueDynamicReflectors,
 	Sky,
 	Count
 };
@@ -47,6 +51,7 @@ private:
 	virtual void OnResize()override;
 	virtual void Update()override;
 	virtual void Draw()override;
+	virtual void CreateRtvAndDsvDescriptorHeaps()override;
 
 	virtual void OnMouseDown(WPARAM btnState, int x, int y)override;
 	virtual void OnMouseUp(WPARAM btnState, int x, int y)override;
@@ -56,10 +61,12 @@ private:
 	void UpdateObjectCBs();
 	void UpdateMaterialBuffer();
 	void UpdateMainPassCB();
+	void UpdateCubeMapFacePassCBs();
 
 	void LoadTextures();
 	void BuildRootSignature();
 	void BuildDescriptorHeaps();
+	void BuildCubeDepthStencil();
 	void BuildShadersAndInputLayout();
 	void BuildGeometry();
 	void BuildSkull();
@@ -68,8 +75,11 @@ private:
 	void BuildMaterials();
 	void BuildRenderItem();
 	void DrawRenderItems(vector<RenderItem*>& ritems);
+	void DrawSceneToCubeMap();
 
 	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers();
+
+	void BuildCubeFaceCamera(float x, float y, float z);
 
 
 private:
@@ -78,6 +88,7 @@ private:
 	vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
 
 	POINT mLastMousePos;
+	PassConstants passConstants;
 
 	vector<unique_ptr<RenderItem>> mAllRenderItems;
 
@@ -90,6 +101,10 @@ private:
 	Camera mCamera;
 
 	UINT mSkyTexHeapIndex = 0;
+	UINT mDynamicTexHeapIndex = 0;
+
+	ComPtr<ID3D12Resource> mCubeDepthStencilBuffer;
+	CD3DX12_CPU_DESCRIPTOR_HANDLE mCubeDSV;
 
 	unordered_map<string, unique_ptr<Material>> mMaterials;
 	unordered_map<string, unique_ptr<Texture>> mTextures;
@@ -98,6 +113,11 @@ private:
 	unordered_map<string, ComPtr<ID3D12PipelineState>> mPSOs;
 
 	vector<RenderItem*> mRitemLayer[(int)RenderLayer::Count];
+
+	RenderItem* mSkull = nullptr;
+
+	unique_ptr<CubeRenderTarget> mDynamicCubeMap = nullptr;
+	Camera mCubeMapCamera[6];
 };
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int nShowCmd) {
@@ -163,6 +183,37 @@ array<const CD3DX12_STATIC_SAMPLER_DESC, 6> CubeMap::GetStaticSamplers()
 	return { pointWrap, pointClamp, linearWrap, linearClamp, anisotropicWarp, anisotropicClamp };
 }
 
+void CubeMap::BuildCubeFaceCamera(float x, float y, float z)
+{
+	XMFLOAT3 center(x, y, z);
+	XMFLOAT3 worldUp(0.0f, 1.0f, 0.0f);
+
+	XMFLOAT3 targets[6] = {
+		XMFLOAT3(x + 1.0f, y, z),
+		XMFLOAT3(x - 1.0f, y, z),
+		XMFLOAT3(x, y + 1.0f, z),
+		XMFLOAT3(x, y - 1.0f, z),
+		XMFLOAT3(x, y, z + 1.0f),
+		XMFLOAT3(x, y, z - 1.0f),
+	};
+
+	XMFLOAT3 ups[6] = {
+		XMFLOAT3(0.0f,1.0f,0.0f),
+		XMFLOAT3(0.0f,1.0f,0.0f),
+		XMFLOAT3(0.0f,0.0f,-1.0f),
+		XMFLOAT3(0.0f,0.0f,1.0f),
+		XMFLOAT3(0.0f,1.0f,0.0f),
+		XMFLOAT3(0.0f,1.0f,0.0f),
+	};
+
+	for (int i = 0; i < 6; i++)
+	{
+		mCubeMapCamera[i].LookAt(center, targets[i], ups[i]);
+		mCubeMapCamera[i].SetLens(0.5f * XM_PI, 1.0f, 0.1f, 1000.0f);
+		mCubeMapCamera[i].UpdateViewMatrix();
+	}
+}
+
 CubeMap::CubeMap(HINSTANCE hInstance) : D3D12App(hInstance)
 {
 }
@@ -182,11 +233,16 @@ bool CubeMap::Init()
 
 	ThrowIfFailed(cmdList->Reset(cmdAllocator.Get(), nullptr));
 
+	mDynamicCubeMap = make_unique<CubeRenderTarget>(d3dDevice.Get(), CubeMapSize, CubeMapSize, DXGI_FORMAT_R8G8B8A8_UNORM);
+
 	mCamera.SetPosition(0.0f, 2.0f, -15.0f);
 
+	BuildCubeFaceCamera(0.0f, 2.0f, 0.0f);
+
 	LoadTextures();
-	BuildDescriptorHeaps();
 	BuildRootSignature();
+	BuildDescriptorHeaps();
+	BuildCubeDepthStencil();
 	BuildShadersAndInputLayout();
 	BuildGeometry();
 	BuildSkull();
@@ -215,6 +271,13 @@ void CubeMap::Update()
 {
 	OnKeyboardInput();
 
+	XMMATRIX skullScale = XMMatrixScaling(0.2f, 0.2f, 0.2f);
+	XMMATRIX skullOffset = XMMatrixTranslation(3.0f, 2.0f, 0.0f);
+	XMMATRIX skullLocalRotate = XMMatrixRotationY(2.0f * mTimer.TotalTime());
+	XMMATRIX skullGlobalRotate = XMMatrixRotationY(0.5f * mTimer.TotalTime());
+	XMStoreFloat4x4(&mSkull->world, skullScale * skullLocalRotate * skullOffset * skullGlobalRotate);
+	mSkull->NumFramesDirty = frameResourceCount;
+
 	mCurrFrameResourceIndex = (mCurrFrameResourceIndex + 1) % frameResourceCount;
 	mCurrFrameResource = mFrameResource[mCurrFrameResourceIndex].get();
 	//如果GPU端围栏值小于CPU端围栏值，即CPU速度快于GPU，则令CPU等待
@@ -236,17 +299,35 @@ void CubeMap::Draw()
 	ThrowIfFailed(currCmdAllocator->Reset());//重复使用记录命令的相关内存
 	ThrowIfFailed(cmdList->Reset(currCmdAllocator.Get(), mPSOs["opaque"].Get()));//复用命令列表及其内存
 
+	////设置CBV描述符堆
+	ID3D12DescriptorHeap* descriptorHeaps[] = { mSrvHeap.Get() };
+	cmdList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+
+	////设置根签名
+	cmdList->SetGraphicsRootSignature(mRootSignature.Get());
+
+	auto matBuffer = mCurrFrameResource->materialBuffer->Resource();
+	cmdList->SetGraphicsRootShaderResourceView(2, matBuffer->GetGPUVirtualAddress());
+
+	CD3DX12_GPU_DESCRIPTOR_HANDLE skyTexDescriptor(mSrvHeap->GetGPUDescriptorHandleForHeapStart());
+	skyTexDescriptor.Offset(mSkyTexHeapIndex, csuDescriptorSize);
+	cmdList->SetGraphicsRootDescriptorTable(3, skyTexDescriptor);
+
+	cmdList->SetGraphicsRootDescriptorTable(4, mSrvHeap->GetGPUDescriptorHandleForHeapStart());
+
+	DrawSceneToCubeMap();
+
 	//设置视口和剪裁矩形
 	cmdList->RSSetViewports(1, &viewPort);
 	cmdList->RSSetScissorRects(1, &scissorRect);
 
 	UINT& ref_mCurrentBackBuffer = mCurrentBackBuffer;
 	//转换资源为后台缓冲区资源，从呈现到渲染目标转换
-	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(swapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mSwapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtvHeap->GetCPUDescriptorHandleForHeapStart(), ref_mCurrentBackBuffer, rtvDescriptorSize);
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mRtvHeap->GetCPUDescriptorHandleForHeapStart(), ref_mCurrentBackBuffer, rtvDescriptorSize);
 	cmdList->ClearRenderTargetView(rtvHandle, Colors::LightBlue, 0, nullptr); //清除RT背景色为淡蓝，并且不设置裁剪矩形
-	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = dsvHeap->GetCPUDescriptorHandleForHeapStart();
+	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = mDsvHeap->GetCPUDescriptorHandleForHeapStart();
 	cmdList->ClearDepthStencilView(dsvHandle, //DSV描述符句柄
 		D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, //Flag
 		1.0f, //默认深度值
@@ -259,23 +340,16 @@ void CubeMap::Draw()
 		true, //RTV对象在堆内存中是连续存放的
 		&dsvHandle);//指向DSV的指针
 
-	////设置CBV描述符堆
-	ID3D12DescriptorHeap* descriptorHeaps[] = { mSrvHeap.Get() };
-	cmdList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
-	////设置根签名
-	cmdList->SetGraphicsRootSignature(mRootSignature.Get());
-
 	auto passCB = mCurrFrameResource->passCB->Resource();
 	cmdList->SetGraphicsRootConstantBufferView(1, passCB->GetGPUVirtualAddress());
 
-	auto matBuffer = mCurrFrameResource->materialBuffer->Resource();
-	cmdList->SetGraphicsRootShaderResourceView(2, matBuffer->GetGPUVirtualAddress());
+	CD3DX12_GPU_DESCRIPTOR_HANDLE dynamicTexDescriptor(mSrvHeap->GetGPUDescriptorHandleForHeapStart());
+	dynamicTexDescriptor.Offset(mSkyTexHeapIndex + 1, csuDescriptorSize);
+	cmdList->SetGraphicsRootDescriptorTable(3, dynamicTexDescriptor);
 
-	CD3DX12_GPU_DESCRIPTOR_HANDLE skyTexDescriptor(mSrvHeap->GetGPUDescriptorHandleForHeapStart());
-	skyTexDescriptor.Offset(mSkyTexHeapIndex, csuDescriptorSize);
+	DrawRenderItems(mRitemLayer[(int)RenderLayer::OpaqueDynamicReflectors]);
+
 	cmdList->SetGraphicsRootDescriptorTable(3, skyTexDescriptor);
-
-	cmdList->SetGraphicsRootDescriptorTable(4, mSrvHeap->GetGPUDescriptorHandleForHeapStart());
 
 	//绘制顶点（通过索引缓冲区绘制）
 	DrawRenderItems(mRitemLayer[(int)RenderLayer::Opaque]);
@@ -284,19 +358,38 @@ void CubeMap::Draw()
 	DrawRenderItems(mRitemLayer[(int)RenderLayer::Sky]);
 
 	//从渲染目标到呈现
-	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(swapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mSwapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 	//完成命令的记录关闭命令列表
 	ThrowIfFailed(cmdList->Close());
 
 	ID3D12CommandList* cmdLists[] = { cmdList.Get() };//声明并定义命令列表数组
 	cmdQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);//将命令从命令列表传至命令队列
 
-	ThrowIfFailed(swapChain->Present(0, 0));
+	ThrowIfFailed(mSwapChain->Present(0, 0));
 	ref_mCurrentBackBuffer = (ref_mCurrentBackBuffer + 1) % 2;
 
 	//FlushCmdQueue();
 	mCurrFrameResource->fenceCPU = ++mCurrentFence;
 	cmdQueue->Signal(fence.Get(), mCurrentFence);
+}
+
+void CubeMap::CreateRtvAndDsvDescriptorHeaps()
+{
+	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc;
+	rtvHeapDesc.NumDescriptors = SwapChainBufferCount + 6;
+	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	rtvHeapDesc.NodeMask = 0;
+	ThrowIfFailed(d3dDevice->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(mRtvHeap.GetAddressOf())));
+
+	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc;
+	dsvHeapDesc.NumDescriptors = 2;
+	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	dsvHeapDesc.NodeMask = 0;
+	ThrowIfFailed(d3dDevice->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(mDsvHeap.GetAddressOf())));
+
+	mCubeDSV = CD3DX12_CPU_DESCRIPTOR_HANDLE(mDsvHeap->GetCPUDescriptorHandleForHeapStart(), 1, dsvDescriptorSize);
 }
 
 void CubeMap::BuildDescriptorHeaps()
@@ -347,6 +440,56 @@ void CubeMap::BuildDescriptorHeaps()
 	d3dDevice->CreateShaderResourceView(skyCubeTex.Get(), &srvDesc, handle);
 
 	mSkyTexHeapIndex = 3;
+	mDynamicTexHeapIndex = mSkyTexHeapIndex + 1;
+
+	auto srvCpuStart = mSrvHeap->GetCPUDescriptorHandleForHeapStart();
+	auto srvGpuStart = mSrvHeap->GetGPUDescriptorHandleForHeapStart();
+	auto rtvCpuStart = mRtvHeap->GetCPUDescriptorHandleForHeapStart();
+
+	int rtvOffset = SwapChainBufferCount;
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE cubeRtvHandles[6];
+	for (int i = 0; i < 6; i++)
+	{
+		cubeRtvHandles[i] = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtvCpuStart, rtvOffset + i, rtvDescriptorSize);
+	}
+
+	mDynamicCubeMap->BuildDescriptors(
+		CD3DX12_CPU_DESCRIPTOR_HANDLE(srvCpuStart, mDynamicTexHeapIndex, csuDescriptorSize), 
+		CD3DX12_GPU_DESCRIPTOR_HANDLE(srvGpuStart, mDynamicTexHeapIndex, csuDescriptorSize), 
+		cubeRtvHandles);
+}
+
+void CubeMap::BuildCubeDepthStencil()
+{
+	D3D12_RESOURCE_DESC depthStencilDesc;
+	depthStencilDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	depthStencilDesc.Alignment = 0;
+	depthStencilDesc.Width = CubeMapSize;
+	depthStencilDesc.Height = CubeMapSize;
+	depthStencilDesc.DepthOrArraySize = 1;
+	depthStencilDesc.MipLevels = 1;
+	depthStencilDesc.Format = mDepthStencilFormat;
+	depthStencilDesc.SampleDesc.Count = 1;
+	depthStencilDesc.SampleDesc.Quality = 0;
+	depthStencilDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	depthStencilDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+	D3D12_CLEAR_VALUE optClear;
+	optClear.Format = mDepthStencilFormat;
+	optClear.DepthStencil.Depth = 1.0f;
+	optClear.DepthStencil.Stencil = 0;
+	ThrowIfFailed(d3dDevice->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), 
+		D3D12_HEAP_FLAG_NONE, 
+		&depthStencilDesc, 
+		D3D12_RESOURCE_STATE_COMMON, 
+		&optClear, 
+		IID_PPV_ARGS(mCubeDepthStencilBuffer.GetAddressOf())));
+
+	d3dDevice->CreateDepthStencilView(mCubeDepthStencilBuffer.Get(), nullptr, mCubeDSV);
+
+	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mCubeDepthStencilBuffer.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE));
 }
 
 void CubeMap::BuildShadersAndInputLayout()
@@ -569,7 +712,7 @@ void CubeMap::BuildPSO()
 	opaqueDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	opaqueDesc.SampleDesc.Count = 1;
 	opaqueDesc.SampleDesc.Quality = 0;
-	opaqueDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	opaqueDesc.DSVFormat = mDepthStencilFormat;
 	ThrowIfFailed(d3dDevice->CreateGraphicsPipelineState(&opaqueDesc, IID_PPV_ARGS(&mPSOs["opaque"])));
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC skyPsoDesc = opaqueDesc;
@@ -597,7 +740,7 @@ void CubeMap::BuildFrameResource()
 	for (int i = 0; i < frameResourceCount; i++)
 	{
 		mFrameResource.push_back(make_unique<FrameResource>(d3dDevice.Get(),
-			1, //passCount
+			1+6, //passCount
 			(UINT)mAllRenderItems.size(),//objCount
 			(UINT)mMaterials.size()));
 	}
@@ -691,6 +834,7 @@ void CubeMap::BuildRenderItem()
 	skullRenderItem->baseVertexLocation = skullRenderItem->geo->DrawArgs["skullGeo"].BaseVertexLocation;
 	skullRenderItem->startIndexLocation = skullRenderItem->geo->DrawArgs["skullGeo"].StartIndexLocation;
 	mRitemLayer[(int)RenderLayer::Opaque].push_back(skullRenderItem.get());
+	mSkull = skullRenderItem.get();
 	mAllRenderItems.push_back(move(skullRenderItem));
 
 	auto gridRenderItem = make_unique<RenderItem>();
@@ -706,8 +850,21 @@ void CubeMap::BuildRenderItem()
 	mRitemLayer[(int)RenderLayer::Opaque].push_back(gridRenderItem.get());
 	mAllRenderItems.push_back(move(gridRenderItem));
 
+	auto globeRenderItem = make_unique<RenderItem>();
+	XMStoreFloat4x4(&globeRenderItem->world, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(0.0f, 2.0f, 0.0f));
+	XMStoreFloat4x4(&globeRenderItem->texTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
+	globeRenderItem->objCBIndex = 4;
+	globeRenderItem->mat = mMaterials["mirrorMat"].get();
+	globeRenderItem->geo = mGeometries["shapeGeo"].get();
+	globeRenderItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	globeRenderItem->indexCount = globeRenderItem->geo->DrawArgs["sphere"].IndexCount;
+	globeRenderItem->baseVertexLocation = globeRenderItem->geo->DrawArgs["sphere"].BaseVertexLocation;
+	globeRenderItem->startIndexLocation = globeRenderItem->geo->DrawArgs["sphere"].StartIndexLocation;
+	mRitemLayer[(int)RenderLayer::OpaqueDynamicReflectors].push_back(globeRenderItem.get());
+	mAllRenderItems.push_back(move(globeRenderItem));
+
 	XMMATRIX brickTexTransform = XMMatrixScaling(1.5f, 2.0f, 1.0f);
-	UINT followObjCBIndex = 4;//接下去的几何体常量数据在CB中的索引从2开始
+	UINT followObjCBIndex = 5;//接下去的几何体常量数据在CB中的索引从2开始
 	//将圆柱和圆的实例模型存入渲染项中
 	for (int i = 0; i < 5; i++)
 	{
@@ -796,6 +953,37 @@ void CubeMap::DrawRenderItems(vector<RenderItem*>& ritems)
 
 		cmdList->DrawIndexedInstanced(renderItem->indexCount, 1, renderItem->startIndexLocation, renderItem->baseVertexLocation, 0);
 	}
+}
+
+void CubeMap::DrawSceneToCubeMap()
+{
+	cmdList->RSSetViewports(1, &mDynamicCubeMap->Viewport());
+	cmdList->RSSetScissorRects(1, &mDynamicCubeMap->ScissorRect());
+
+	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mDynamicCubeMap->Resource(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+	UINT passCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(PassConstants));
+
+	for (int i = 0; i < 6; i++)
+	{
+		cmdList->ClearRenderTargetView(mDynamicCubeMap->Rtv(i), Colors::LightBlue, 0, nullptr);
+		cmdList->ClearDepthStencilView(mCubeDSV, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+		cmdList->OMSetRenderTargets(1, &mDynamicCubeMap->Rtv(i), true, &mCubeDSV);
+
+		auto passCB = mCurrFrameResource->passCB->Resource();
+		D3D12_GPU_VIRTUAL_ADDRESS passCBAddress = passCB->GetGPUVirtualAddress() + (1 + i) * passCBByteSize;
+		cmdList->SetGraphicsRootConstantBufferView(1, passCBAddress);
+
+		DrawRenderItems(mRitemLayer[(int)RenderLayer::Opaque]);
+
+		cmdList->SetPipelineState(mPSOs["sky"].Get());
+		DrawRenderItems(mRitemLayer[(int)RenderLayer::Sky]);
+
+		cmdList->SetPipelineState(mPSOs["opaque"].Get());
+	}
+
+	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mDynamicCubeMap->Resource(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ));
+
 }
 
 void CubeMap::OnMouseDown(WPARAM btnState, int x, int y)
@@ -906,7 +1094,6 @@ void CubeMap::UpdateMainPassCB()
 
 	XMMATRIX VP_Matrix = XMMatrixMultiply(view, proj);
 
-	PassConstants passConstants;
 	XMStoreFloat4x4(&passConstants.viewProj, XMMatrixTranspose(VP_Matrix));
 
 	passConstants.eyePosW = mCamera.GetPosition3f();
@@ -921,6 +1108,27 @@ void CubeMap::UpdateMainPassCB()
 
 	auto currPassCB = mCurrFrameResource->passCB.get();
 	currPassCB->CopyData(0, passConstants);
+
+	UpdateCubeMapFacePassCBs();
+}
+
+void CubeMap::UpdateCubeMapFacePassCBs()
+{
+	for (int i = 0; i < 6; i++)
+	{
+		PassConstants cubeFacePassCB = passConstants;
+
+		XMMATRIX view = mCubeMapCamera[i].GetView();
+		XMMATRIX proj = mCubeMapCamera[i].GetProj();
+
+		XMMATRIX vp = view * proj;
+		XMStoreFloat4x4(&cubeFacePassCB.viewProj, XMMatrixTranspose(vp));
+
+		cubeFacePassCB.eyePosW = mCubeMapCamera[i].GetPosition3f();
+
+		auto currPassCB = mCurrFrameResource->passCB.get();
+		currPassCB->CopyData(1 + i, cubeFacePassCB);
+	}
 }
 
 void CubeMap::LoadTextures()

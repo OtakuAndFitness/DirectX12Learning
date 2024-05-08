@@ -134,6 +134,7 @@
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CPUInstancing.cpp" />
     <ClCompile Include="CubeMap.cpp" />
+    <ClCompile Include="CubeRenderTarget.cpp" />
     <ClCompile Include="D3D12App.cpp" />
     <ClCompile Include="D3D12InitApp.cpp" />
     <ClCompile Include="DDSTextureLoader.cpp" />
@@ -151,6 +152,7 @@
   <ItemGroup>
     <ClInclude Include="BlurFilter.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="CubeRenderTarget.h" />
     <ClInclude Include="D3D12App.h" />
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="DDSTextureLoader.h" />
