@@ -20,7 +20,7 @@ struct MaterialData
     float gRoughness;
     float4x4 gMatTransform;
     uint gDiffuseMapIndex;
-    uint gMatPad0;
+    uint gNormalMapIndex;
     uint gMatPad1;
     uint gMatPad2;
 
@@ -28,7 +28,8 @@ struct MaterialData
 
 TextureCube gCubeMap : register(t0);
 
-Texture2D gDiffuseMap[4] : register(t1); //所有漫反射贴图
+//Texture2D gDiffuseMap[4] : register(t1); //所有漫反射贴图
+Texture2D gTextureMaps[10] : register(t1);
 
 StructuredBuffer<MaterialData> gMaterialData : register(t0, space1);
 
@@ -65,3 +66,18 @@ cbuffer cbPass : register(b1)
     float gFogRange;
     float2 pad2;
 };
+
+float3 NormalMapSampleToWorldSpace(float3 normalMapSample, float3 unitNormalW, float3 tangentW)
+{
+    float3 normalT = 2.0f * normalMapSample - 1.0f;
+    
+    float3 N = unitNormalW;
+    float3 T = normalize(tangentW - dot(tangentW, N) * N);
+    float3 B = cross(N, T);
+    
+    float3x3 TBN = float3x3(T, B, N);
+    
+    float3 bumpedNormalW = mul(normalT, TBN);
+    
+    return bumpedNormalW;
+}

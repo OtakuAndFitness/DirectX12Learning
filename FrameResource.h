@@ -14,6 +14,7 @@ struct Vertex
 	//XMFLOAT4 Color;
 	XMFLOAT3 Normal;
 	XMFLOAT2 TexC;
+	XMFLOAT3 TangentU;
 };
 
 //单个物体的常量数据
@@ -58,7 +59,8 @@ struct MaterialData {
 	XMFLOAT4X4 matTransform = MathHelper::Identity4x4();
 
 	UINT diffuseMapIndex = 0;
-	UINT matPad0;
+	UINT normalMapIndex = 0;
+	//UINT matPad0;
 	UINT matPad1;
 	UINT matPad2;
 };
