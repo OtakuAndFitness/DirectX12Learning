@@ -1154,6 +1154,19 @@ void ShadowMapApp::BuildRenderItem()
 	mRitemLayer[(int)RenderLayer::Opaque].push_back(quadRenderItem.get());
 	mAllRenderItems.push_back(move(quadRenderItem));
 
+	auto boxRenderItem = make_unique<RenderItem>();
+	XMStoreFloat4x4(&boxRenderItem->world, XMMatrixScaling(2.0f, 1.0f, 2.0f) * XMMatrixTranslation(0.0f, 0.5f, 0.0f));
+	XMStoreFloat4x4(&boxRenderItem->texTransform, XMMatrixScaling(1.0f, 0.5f, 1.0f));
+	boxRenderItem->objCBIndex = 2;
+	boxRenderItem->mat = mMaterials["bricksMat"].get();
+	boxRenderItem->geo = mGeometries["shapeGeo"].get();
+	boxRenderItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	boxRenderItem->indexCount = boxRenderItem->geo->DrawArgs["box"].IndexCount;
+	boxRenderItem->baseVertexLocation = boxRenderItem->geo->DrawArgs["box"].BaseVertexLocation;
+	boxRenderItem->startIndexLocation = boxRenderItem->geo->DrawArgs["box"].StartIndexLocation;
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(boxRenderItem.get());
+	mAllRenderItems.push_back(move(boxRenderItem));
+
 	auto skullRenderItem = make_unique<RenderItem>();
 	XMStoreFloat4x4(&skullRenderItem->world, XMMatrixScaling(0.4f, 0.4f, 0.4f) * XMMatrixTranslation(0.0f, 1.0f, 0.0f));
 	skullRenderItem->texTransform = MathHelper::Identity4x4();
