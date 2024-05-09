@@ -274,7 +274,7 @@ void NormalMap::Draw()
 		passCB->GetGPUVirtualAddress());
 
 	auto matBuffer = mCurrFrameResource->materialBuffer->Resource();
-	cmdList->SetGraphicsRootConstantBufferView(2, //根参数的起始索引
+	cmdList->SetGraphicsRootShaderResourceView(2, //根参数的起始索引
 		matBuffer->GetGPUVirtualAddress());
 
 	CD3DX12_GPU_DESCRIPTOR_HANDLE skyTexDescriptor(mSrvHeap->GetGPUDescriptorHandleForHeapStart());
