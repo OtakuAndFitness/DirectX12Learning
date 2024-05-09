@@ -36,6 +36,10 @@ struct PassConstants {
 
 	XMFLOAT3 eyePosW = { 0.0f, 0.0f, 0.0f };
 	float totalTime = 0.0f;
+	XMFLOAT2 renderTargetSize = { 0.0f,0.0f };
+	float nearZ = 0.0f;
+	float farZ = 0.0f;
+	XMFLOAT4X4 shadowTransform = MathHelper::Identity4x4();
 	XMFLOAT4 ambientLight = { 0.0f, 0.0f, 0.0f, 1.0f };
 	Light lights[MaxLights];
 

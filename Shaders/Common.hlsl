@@ -27,9 +27,9 @@ struct MaterialData
 };
 
 TextureCube gCubeMap : register(t0);
-
+Texture2D gShadowMap : register(t1);
 //Texture2D gDiffuseMap[4] : register(t1); //所有漫反射贴图
-Texture2D gTextureMaps[10] : register(t1);
+Texture2D gTextureMaps[10] : register(t2);
 
 StructuredBuffer<MaterialData> gMaterialData : register(t0, space1);
 
@@ -40,7 +40,7 @@ SamplerState gSamLinearWrap : register(s2);
 SamplerState gSamLinearClamp : register(s3);
 SamplerState gSamAnisotropicWarp : register(s4);
 SamplerState gSamAnisotropicClamp : register(s5);
-
+SamplerComparisonState gsamShadow : register(s6);
 
 cbuffer cbPerObject : register(b0)
 {
@@ -58,6 +58,10 @@ cbuffer cbPass : register(b1)
     float4x4 gViewProj;
     float3 gEyePosW;
     float gTotalTime;
+    float2 gRenderTargetSize;
+    float gNearZ;
+    float gFarZ;
+    float4x4 gShadowTransform;
     float4 gAmbientLight;
     Light gLights[MaxLights];
     
@@ -80,4 +84,34 @@ float3 NormalMapSampleToWorldSpace(float3 normalMapSample, float3 unitNormalW, f
     float3 bumpedNormalW = mul(normalT, TBN);
     
     return bumpedNormalW;
+}
+
+float CalcShadowFactor(float4 shadowPosH)
+{
+    // 将顶点变换到NDC空间（如果是正交投影，则W=1）
+    shadowPosH.xyz /= shadowPosH.w;
+    // NDC空间中的深度值
+    float depth = shadowPosH.z;
+    // 读取ShadowMap的宽高及mip级数
+    uint width, height, numMips;
+    gShadowMap.GetDimensions(0, width, height, numMips);
+    
+    float dx = 1.0f / (float) width;
+    
+    float precentLit = 0.0f;
+    const float2 offsets[9] =
+    {
+        float2(-dx, -dx), float2(0.0f, -dx), float2(dx, -dx),
+         float2(-dx, 0.0f), float2(0.0f, 0.0f), float2(dx, 0.0f),
+         float2(-dx, dx), float2(0.0f, dx), float2(dx, dx),
+    };
+    
+    [unroll]
+    for (int i = 0;i <9;i++)
+    {
+        precentLit += gShadowMap.SampleCmpLevelZero(gsamShadow, shadowPosH.xy + offsets[i], depth).r;
+    }
+    
+    return precentLit / 9.0f;
+
 }

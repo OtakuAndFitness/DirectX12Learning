@@ -66,10 +66,16 @@
     <ClCompile Include="CubeMap.cpp">
       <Filter>资源文件</Filter>
     </ClCompile>
-    <ClCompile Include="CubeRenderTarget.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="NormalMap.cpp">
+      <Filter>资源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CubeRenderTarget.cpp">
+      <Filter>资源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ShadowMap.cpp">
+      <Filter>资源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ShadowMapApp.cpp">
       <Filter>资源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -111,6 +117,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="CubeRenderTarget.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ShadowMap.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
