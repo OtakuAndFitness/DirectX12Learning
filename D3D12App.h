@@ -51,6 +51,11 @@ protected:
 	virtual void OnMouseUp(WPARAM btnState, int x, int y) { }
 	virtual void OnMouseMove(WPARAM btnState, int x, int y) { }
 
+	ID3D12Resource* CurrentBackBuffer()const;
+	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView()const;
+	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView()const;
+
+
 protected:
 	static D3D12App* mApp;
 
@@ -60,6 +65,8 @@ protected:
 	GameTimer mTimer;
 
 	static const int SwapChainBufferCount = 2;
+	int mCurrentBackBuffer = 0;
+
 
 	ComPtr<ID3D12Device> d3dDevice;
 	ComPtr<IDXGIFactory4> dxgiFactory;
@@ -77,7 +84,6 @@ protected:
 	UINT rtvDescriptorSize = 0;
 	UINT dsvDescriptorSize = 0;
 	UINT csuDescriptorSize = 0;
-	UINT mCurrentBackBuffer = 0;
 
 	D3D12_VIEWPORT viewPort;
 	D3D12_RECT scissorRect;

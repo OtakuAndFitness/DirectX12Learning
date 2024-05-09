@@ -244,14 +244,11 @@ void NormalMap::Draw()
 	cmdList->RSSetViewports(1, &viewPort);
 	cmdList->RSSetScissorRects(1, &scissorRect);
 
-	UINT& ref_mCurrentBackBuffer = mCurrentBackBuffer;
 	//转换资源为后台缓冲区资源，从呈现到渲染目标转换
-	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mSwapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mRtvHeap->GetCPUDescriptorHandleForHeapStart(), ref_mCurrentBackBuffer, rtvDescriptorSize);
-	cmdList->ClearRenderTargetView(rtvHandle, Colors::LightBlue, 0, nullptr); //清除RT背景色为淡蓝，并且不设置裁剪矩形
-	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = mDsvHeap->GetCPUDescriptorHandleForHeapStart();
-	cmdList->ClearDepthStencilView(dsvHandle, //DSV描述符句柄
+	cmdList->ClearRenderTargetView(CurrentBackBufferView(), Colors::LightBlue, 0, nullptr); //清除RT背景色为淡蓝，并且不设置裁剪矩形
+	cmdList->ClearDepthStencilView(DepthStencilView(), //DSV描述符句柄
 		D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, //Flag
 		1.0f, //默认深度值
 		0, //默认模板值
@@ -259,9 +256,9 @@ void NormalMap::Draw()
 		nullptr);//裁剪矩形指针
 
 	cmdList->OMSetRenderTargets(1, //待绑定的RTV数量
-		&rtvHandle, //指向RTV数组的指针
+		&CurrentBackBufferView(), //指向RTV数组的指针
 		true, //RTV对象在堆内存中是连续存放的
-		&dsvHandle);//指向DSV的指针
+		&DepthStencilView());//指向DSV的指针
 
 	ID3D12DescriptorHeap* descriptorHeaps[] = { mSrvHeap.Get() };
 	cmdList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
@@ -290,7 +287,7 @@ void NormalMap::Draw()
 	DrawRenderItems(mRitemLayer[(int)RenderLayer::Sky]);
 	
 	////从渲染目标到呈现
-	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mSwapChainBuffer[ref_mCurrentBackBuffer].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 	
 	//完成命令的记录关闭命令列表
 	ThrowIfFailed(cmdList->Close());
@@ -299,7 +296,7 @@ void NormalMap::Draw()
 	cmdQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);//将命令从命令列表传至命令队列
 
 	ThrowIfFailed(mSwapChain->Present(0, 0));
-	ref_mCurrentBackBuffer = (ref_mCurrentBackBuffer + 1) % SwapChainBufferCount;
+	mCurrentBackBuffer = (mCurrentBackBuffer + 1) % SwapChainBufferCount;
 
 	//FlushCmdQueue();
 	mCurrFrameResource->fenceCPU = ++mCurrentFence;

@@ -402,6 +402,21 @@ void D3D12App::OnResize() {
 
 }
 
+ID3D12Resource* D3D12App::CurrentBackBuffer() const
+{
+	return mSwapChainBuffer[mCurrentBackBuffer].Get();
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE D3D12App::CurrentBackBufferView() const
+{
+	return CD3DX12_CPU_DESCRIPTOR_HANDLE(mRtvHeap->GetCPUDescriptorHandleForHeapStart(), mCurrentBackBuffer, rtvDescriptorSize);
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE D3D12App::DepthStencilView() const
+{
+	return mDsvHeap->GetCPUDescriptorHandleForHeapStart();
+}
+
 float D3D12App::AspectRatio() const
 {
 	return static_cast<float>(mClientWidth) / mClientHeight;
