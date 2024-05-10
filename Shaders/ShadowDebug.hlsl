@@ -15,8 +15,8 @@ struct VertexOut
 VertexOut VS(VertexIn vin)
 {
     VertexOut vout;
-        
-    vout.PosH = mul(float4(vin.PosL, 1.0f), gViewProj);
+       
+    vout.PosH = float4(vin.PosL,1.0f);
 	
     vout.uv = vin.TexCoord;
     
