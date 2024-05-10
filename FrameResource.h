@@ -32,6 +32,8 @@ struct ObjectConstants
 };
 
 struct PassConstants {
+	XMFLOAT4X4 proj = MathHelper::Identity4x4();
+	XMFLOAT4X4 invProj = MathHelper::Identity4x4();
 	XMFLOAT4X4 viewProj = MathHelper::Identity4x4();
 
 	XMFLOAT3 eyePosW = { 0.0f, 0.0f, 0.0f };
@@ -47,6 +49,22 @@ struct PassConstants {
 	float fogStart = 1.0f;//雾的起始距离
 	float fogRange = 1.0f;//雾的衰减范围
 	XMFLOAT2 pad2 = { 0.0f, 0.0f };//占位
+};
+
+struct SsaoConstants {
+	XMFLOAT4X4 proj;
+	XMFLOAT4X4 invProj;
+	XMFLOAT4X4 projTex;
+	XMFLOAT4 offsetVectors[14];
+
+	XMFLOAT4 blurWeights[3];
+
+	XMFLOAT2 invRenderTargetSize = { 0.0f,0.0f };
+
+	float occlusionRadius = 0.5f;
+	float occlusionFadeStart = 0.2f;
+	float occlusionFadeEnd = 2.0f;
+	float surfaceEpsilon = 0.05f;
 };
 
 //struct MatConstants {
@@ -93,6 +111,7 @@ struct FrameResource
 		//每帧都需要单独的资源缓冲区（此案例仅为2个常量缓冲区）
 		unique_ptr<UploadBuffer<ObjectConstants>> objCB = nullptr;
 		unique_ptr<UploadBuffer<PassConstants>> passCB = nullptr;
+		unique_ptr<UploadBuffer<SsaoConstants>> ssaoCB = nullptr;
 		unique_ptr<UploadBuffer<Vertex>> wavesVB = nullptr;
 		unique_ptr<UploadBuffer<MaterialData>> materialBuffer = nullptr;
 		unique_ptr<UploadBuffer<InstanceData>> instanceBuffer = nullptr;
