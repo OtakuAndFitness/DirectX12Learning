@@ -390,7 +390,7 @@ void D3D12App::OnResize() {
 	d3dDevice->CreateDepthStencilView(mDepthStencilBuffer.Get(),
 		&dsvDesc, //D3D12_DEPTH_STENCIL_VIEW_DESC类型指针，可填&dsvDesc（见上注释代码），
 					//由于在创建深度模板资源时已经定义深度模板数据属性，所以这里可以指定为空指针
-		mDsvHeap->GetCPUDescriptorHandleForHeapStart());//DSV句柄
+		DepthStencilView());//DSV句柄
 	
 	ThrowIfFailed(cmdList->Close());//命令添加完后将其关闭
 	ID3D12CommandList* cmdsLists[] = { cmdList.Get() };//声明并定义命令列表数组

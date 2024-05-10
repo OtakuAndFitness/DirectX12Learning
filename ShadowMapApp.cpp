@@ -84,7 +84,7 @@ private:
 	vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
 
 	POINT mLastMousePos;
-	PassConstants passConstants;
+	//PassConstants passConstants;
 
 	float mLightRotationAngle = 0.0f;
 	XMFLOAT3 mBaseLightDirections[3] = {
@@ -98,8 +98,8 @@ private:
 	BoundingSphere mSceneBounds;
 
 	XMFLOAT3 mLightPosW;
-	float mLightNearZ = 0.0f;
-	float mLightFarZ = 0.0f;
+	//float mLightNearZ = 0.0f;
+	//float mLightFarZ = 0.0f;
 	XMFLOAT4X4 mLightView = MathHelper::Identity4x4();
 	XMFLOAT4X4 mLightProj = MathHelper::Identity4x4();
 	XMFLOAT4X4 mShadowTransform = MathHelper::Identity4x4();
@@ -208,6 +208,8 @@ array<const CD3DX12_STATIC_SAMPLER_DESC, 7> ShadowMapApp::GetStaticSamplers()
 
 ShadowMapApp::ShadowMapApp(HINSTANCE hInstance) : D3D12App(hInstance)
 {
+	mSceneBounds.Center = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	mSceneBounds.Radius = sqrtf(10.0f * 10.0f + 15.0f * 15.0f);
 }
 
 ShadowMapApp::~ShadowMapApp()
@@ -281,8 +283,8 @@ void ShadowMapApp::Update()
 
 	UpdateObjectCBs();
 	UpdateMaterialBuffer();
-	UpdateMainPassCB();
 	UpdateShadowTransform();
+	UpdateMainPassCB();
 	UpdateShadowPassCB();
 }
 
@@ -486,6 +488,8 @@ void ShadowMapApp::UpdateMaterialBuffer()
 
 void ShadowMapApp::UpdateMainPassCB()
 {
+	PassConstants passConstants;
+
 	XMMATRIX view = mCamera.GetView();
 	XMMATRIX proj = mCamera.GetProj();
 
@@ -493,7 +497,14 @@ void ShadowMapApp::UpdateMainPassCB()
 
 	XMStoreFloat4x4(&passConstants.viewProj, XMMatrixTranspose(VP_Matrix));
 
+	XMMATRIX shadowTransform = XMLoadFloat4x4(&mShadowTransform);
+	XMStoreFloat4x4(&passConstants.shadowTransform, XMMatrixTranspose(shadowTransform));
+
 	passConstants.eyePosW = mCamera.GetPosition3f();
+	//passConstants.renderTargetSize = XMFLOAT2((float)mClientWidth, (float)mClientHeight);
+	//passConstants.nearZ = 1.0f;
+	//passConstants.farZ = 1000.0f;
+	//passConstants.totalTime = mTimer.TotalTime();
 
 	passConstants.ambientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
 	passConstants.lights[0].direction = mRotatedLightDirections[0];
@@ -531,8 +542,8 @@ void ShadowMapApp::UpdateShadowTransform()
 	float t = sphereCenterLS.y + mSceneBounds.Radius;//上端点
 	float f = sphereCenterLS.z + mSceneBounds.Radius;//远端点
 
-	mLightNearZ = n;//近裁剪面距离
-	mLightFarZ = f;//远裁剪面距离
+	//mLightNearZ = n;//近裁剪面距离
+	//mLightFarZ = f;//远裁剪面距离
 	//构建LightToProject矩阵（灯光空间转NDC空间）
 	XMMATRIX lightProj = XMMatrixOrthographicOffCenterLH(l, r, b, t, n, f);
 	
@@ -554,20 +565,21 @@ void ShadowMapApp::UpdateShadowTransform()
 
 void ShadowMapApp::UpdateShadowPassCB()
 {
-	PassConstants shadowMapPassConstants = passConstants;
+	PassConstants shadowMapPassConstants;
 
 	XMMATRIX view = XMLoadFloat4x4(&mLightView);
 	XMMATRIX proj = XMLoadFloat4x4(&mLightProj);
 
 	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
 
-	UINT w = mShadowMap->Width();
-	UINT h = mShadowMap->Height();
+	//UINT w = mShadowMap->Width();
+	//UINT h = mShadowMap->Height();
 
 	XMStoreFloat4x4(&shadowMapPassConstants.viewProj, XMMatrixTranspose(viewProj));
-	shadowMapPassConstants.renderTargetSize = XMFLOAT2((float)w, (float)h);
-	shadowMapPassConstants.nearZ = mLightNearZ;
-	shadowMapPassConstants.farZ = mLightFarZ;
+	//shadowMapPassConstants.eyePosW = mLightPosW;
+	//shadowMapPassConstants.renderTargetSize = XMFLOAT2((float)w, (float)h);
+	//shadowMapPassConstants.nearZ = mLightNearZ;
+	//shadowMapPassConstants.farZ = mLightFarZ;
 
 	auto currPassCB = mCurrFrameResource->passCB.get();
 	currPassCB->CopyData(1, shadowMapPassConstants);
@@ -728,11 +740,11 @@ void ShadowMapApp::BuildDescriptorHeaps()
 
 void ShadowMapApp::BuildShadersAndInputLayout()
 {
-	const D3D_SHADER_MACRO alphaTestDefines[] =
+	/*const D3D_SHADER_MACRO alphaTestDefines[] =
 	{
 		"ALPHA_TEST", "1",
 		NULL, NULL
-	};
+	};*/
 
 	mShaders["standardVS"] = d3dUtil::CompileShader(L"Shaders\\ShadowMap.hlsl", nullptr, "VS", "vs_5_1");
 	mShaders["standardPS"] = d3dUtil::CompileShader(L"Shaders\\ShadowMap.hlsl", nullptr, "PS", "ps_5_1");
@@ -1151,7 +1163,7 @@ void ShadowMapApp::BuildRenderItem()
 	quadRenderItem->indexCount = quadRenderItem->geo->DrawArgs["quad"].IndexCount;
 	quadRenderItem->baseVertexLocation = quadRenderItem->geo->DrawArgs["quad"].BaseVertexLocation;
 	quadRenderItem->startIndexLocation = quadRenderItem->geo->DrawArgs["quad"].StartIndexLocation;
-	mRitemLayer[(int)RenderLayer::Opaque].push_back(quadRenderItem.get());
+	mRitemLayer[(int)RenderLayer::Debug].push_back(quadRenderItem.get());
 	mAllRenderItems.push_back(move(quadRenderItem));
 
 	auto boxRenderItem = make_unique<RenderItem>();
