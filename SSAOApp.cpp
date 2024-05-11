@@ -1251,7 +1251,7 @@ void SSAOApp::BuildPSO()
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC ssaoDesc = baseDesc;
 	ssaoDesc.InputLayout = { nullptr,0 };
-	ssaoDesc.pRootSignature = mRootSignature.Get();
+	ssaoDesc.pRootSignature = mSsaoRootSignature.Get();
 	ssaoDesc.VS = {
 		reinterpret_cast<BYTE*>(mShaders["ssaoVS"]->GetBufferPointer()),
 		mShaders["ssaoVS"]->GetBufferSize()
