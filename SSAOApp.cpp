@@ -1546,8 +1546,8 @@ void SSAOApp::DrawSceneToShadowMap()
 
 void SSAOApp::DrawNormalsAndDepth()
 {
-	cmdList->RSSetViewports(1, &mShadowMap->Viewport());
-	cmdList->RSSetScissorRects(1, &mShadowMap->ScissorRect());
+	cmdList->RSSetViewports(1, &viewPort);
+	cmdList->RSSetScissorRects(1, &scissorRect);
 
 	auto normalMap = mSsaoMap->NormalMap();
 	auto normalMapRtv = mSsaoMap->NormalMapRtv();
