@@ -1321,7 +1321,7 @@ void SSAOApp::BuildMaterials()
 
 	auto tile = make_unique<Material>();
 	tile->name = "tileMat";
-	tile->matCBIndex = 1;
+	tile->matCBIndex = 2;
 	tile->diffuseSrvHeapIndex = 2;
 	tile->normalSrvHeapIndex = 3;
 	tile->diffuseAlbedo = XMFLOAT4(0.9f, 0.9f, 0.9f, 1.0f);
@@ -1330,7 +1330,7 @@ void SSAOApp::BuildMaterials()
 
 	auto mirror = make_unique<Material>();
 	mirror->name = "mirrorMat";
-	mirror->matCBIndex = 2;
+	mirror->matCBIndex = 3;
 	mirror->diffuseSrvHeapIndex = 4;
 	mirror->normalSrvHeapIndex = 5;
 	mirror->diffuseAlbedo = XMFLOAT4(0.0f, 0.0f, 0.1f, 1.0f);
