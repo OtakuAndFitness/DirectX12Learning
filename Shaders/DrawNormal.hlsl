@@ -40,7 +40,8 @@ VertexOut VS(VertexIn vin)
     
     vout.TangentW = mul(vin.TangentU, (float3x3) gWorld);
     
-    vout.PosH = mul(float4(vin.PosL, 1.0f), gViewProj);
+    float4 posW = mul(float4(vin.PosL, 1.0f), gWorld);
+    vout.PosH = mul(posW, gViewProj);
 	
     //vout.Color = vin.Color;
     float4 texCoord = mul(float4(vin.TexCoord, 0.0f, 1.0f), gTexTransform);
