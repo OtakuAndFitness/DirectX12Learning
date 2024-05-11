@@ -919,8 +919,8 @@ void SSAOApp::BuildShadersAndInputLayout()
 	mShaders["shadowOpaquePS"] = d3dUtil::CompileShader(L"Shaders\\Shadow.hlsl", nullptr, "PS", "ps_5_1");
 	//mShaders["shadowAlphaTestedPS"] = d3dUtil::CompileShader(L"Shaders\\Shadow.hlsl", alphaTestDefines, "PS", "vs_5_1");
 
-	mShaders["debugVS"] = d3dUtil::CompileShader(L"Shaders\\ShadowDebug.hlsl", nullptr, "VS", "vs_5_1");
-	mShaders["debugPS"] = d3dUtil::CompileShader(L"Shaders\\ShadowDebug.hlsl", nullptr, "PS", "ps_5_1");
+	mShaders["debugVS"] = d3dUtil::CompileShader(L"Shaders\\Debug.hlsl", nullptr, "VS", "vs_5_1");
+	mShaders["debugPS"] = d3dUtil::CompileShader(L"Shaders\\Debug.hlsl", nullptr, "PS", "ps_5_1");
 
 	mShaders["drawNormalVS"] = d3dUtil::CompileShader(L"Shaders\\DrawNormal.hlsl", nullptr, "VS", "vs_5_1");
 	mShaders["drawNormalPS"] = d3dUtil::CompileShader(L"Shaders\\DrawNormal.hlsl", nullptr, "PS", "ps_5_1");
