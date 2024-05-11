@@ -821,7 +821,7 @@ void SSAOApp::BuildSsaoRootSignature()
 		0,
 		serializedRootSig->GetBufferPointer(),
 		serializedRootSig->GetBufferSize(),
-		IID_PPV_ARGS(&mRootSignature)));
+		IID_PPV_ARGS(mSsaoRootSignature.GetAddressOf())));
 }
 
 void SSAOApp::BuildDescriptorHeaps()
