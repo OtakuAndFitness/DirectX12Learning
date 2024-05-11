@@ -551,8 +551,10 @@ void SSAOApp::UpdateMainPassCB()
 	XMMATRIX viewProjTex = XMMatrixMultiply(VP_Matrix, T);
 
 	XMStoreFloat4x4(&passConstants.shadowTransform, XMMatrixTranspose(shadowTransform));
+	XMStoreFloat4x4(&passConstants.view, XMMatrixTranspose(view));
 	XMStoreFloat4x4(&passConstants.proj, XMMatrixTranspose(proj));
 	XMStoreFloat4x4(&passConstants.invProj, XMMatrixTranspose(invProj));
+	XMStoreFloat4x4(&passConstants.viewProjTex, XMMatrixTranspose(viewProjTex));
 
 	passConstants.eyePosW = mCamera.GetPosition3f();
 	//passConstants.renderTargetSize = XMFLOAT2((float)mClientWidth, (float)mClientHeight);
@@ -893,9 +895,9 @@ void SSAOApp::BuildDescriptorHeaps()
 	d3dDevice->CreateShaderResourceView(nullptr, &srvDesc, nullSrv);
 
 	mShadowMap->BuildDescriptors(
-		CD3DX12_CPU_DESCRIPTOR_HANDLE(GetCpuSrv(mShadowMapHeapIndex)),
-		CD3DX12_GPU_DESCRIPTOR_HANDLE(GetGpuSrv(mShadowMapHeapIndex)),
-		CD3DX12_CPU_DESCRIPTOR_HANDLE(GetDsv(1))
+		GetCpuSrv(mShadowMapHeapIndex),
+		GetGpuSrv(mShadowMapHeapIndex),
+		GetDsv(1)
 	);
 
 	mSsaoMap->BuildDescriptors(mDepthStencilBuffer.Get(), GetCpuSrv(mSsaoHeapIndexStart), GetGpuSrv(mSsaoHeapIndexStart), GetRtv(SwapChainBufferCount), csuDescriptorSize, rtvDescriptorSize);
@@ -910,8 +912,8 @@ void SSAOApp::BuildShadersAndInputLayout()
 		NULL, NULL
 	};*/
 
-	mShaders["standardVS"] = d3dUtil::CompileShader(L"Shaders\\ShadowMap.hlsl", nullptr, "VS", "vs_5_1");
-	mShaders["standardPS"] = d3dUtil::CompileShader(L"Shaders\\ShadowMap.hlsl", nullptr, "PS", "ps_5_1");
+	mShaders["standardVS"] = d3dUtil::CompileShader(L"Shaders\\Default.hlsl", nullptr, "VS", "vs_5_1");
+	mShaders["standardPS"] = d3dUtil::CompileShader(L"Shaders\\Default.hlsl", nullptr, "PS", "ps_5_1");
 
 	mShaders["shadowVS"] = d3dUtil::CompileShader(L"Shaders\\Shadow.hlsl", nullptr, "VS", "vs_5_1");
 	mShaders["shadowOpaquePS"] = d3dUtil::CompileShader(L"Shaders\\Shadow.hlsl", nullptr, "PS", "ps_5_1");
@@ -1586,7 +1588,7 @@ CD3DX12_GPU_DESCRIPTOR_HANDLE SSAOApp::GetGpuSrv(int index) const
 CD3DX12_CPU_DESCRIPTOR_HANDLE SSAOApp::GetDsv(int index) const
 {
 	auto dsv = CD3DX12_CPU_DESCRIPTOR_HANDLE(mDsvHeap->GetCPUDescriptorHandleForHeapStart());
-	dsv.Offset(index, csuDescriptorSize);
+	dsv.Offset(index, dsvDescriptorSize);
 
 	return dsv;
 }
@@ -1594,7 +1596,7 @@ CD3DX12_CPU_DESCRIPTOR_HANDLE SSAOApp::GetDsv(int index) const
 CD3DX12_CPU_DESCRIPTOR_HANDLE SSAOApp::GetRtv(int index) const
 {
 	auto rtv = CD3DX12_CPU_DESCRIPTOR_HANDLE(mRtvHeap->GetCPUDescriptorHandleForHeapStart());
-	rtv.Offset(index, csuDescriptorSize);
+	rtv.Offset(index, rtvDescriptorSize);
 
 	return rtv;
 }
