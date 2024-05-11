@@ -179,6 +179,8 @@ void SSAO::ComputeSsao(ID3D12GraphicsCommandList* list, FrameResource* currFrame
 
 	list->SetGraphicsRootDescriptorTable(3, mhRandomVectorMapGpuSrv);
 
+	list->SetPipelineState(mSsaoPso);
+
 	list->IASetVertexBuffers(0, 0, nullptr);
 	list->IASetIndexBuffer(nullptr);
 	list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
