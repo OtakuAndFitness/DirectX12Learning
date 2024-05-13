@@ -3,6 +3,7 @@
 #include "Camera.h"
 #include "ShadowMap.h"
 #include "SSAO.h"
+#include "AnimHelper.h"
 
 struct RenderItem {
 	RenderItem() = default;
@@ -78,6 +79,7 @@ private:
 	void DrawRenderItems(vector<RenderItem*>& ritems);
 	void DrawSceneToShadowMap();
 	void DrawNormalsAndDepth();
+	void DefineSkullAnimation();
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE GetCpuSrv(int index)const;
 	CD3DX12_GPU_DESCRIPTOR_HANDLE GetGpuSrv(int index)const;
@@ -149,6 +151,14 @@ private:
 	unique_ptr<SSAO> mSsaoMap;
 
 	PassConstants passConstants;
+
+	BoneAnimation mSkullAnimation;
+
+	float mAnimTimePos = 0.0f;
+
+	XMFLOAT4X4 mSkullWorld = MathHelper::Identity4x4();
+
+	RenderItem* mSkullRenderItem = nullptr;
 
 };
 
@@ -227,6 +237,8 @@ array<const CD3DX12_STATIC_SAMPLER_DESC, 7> SSAOApp::GetStaticSamplers()
 
 SSAOApp::SSAOApp(HINSTANCE hInstance) : D3D12App(hInstance)
 {
+	DefineSkullAnimation();
+
 	mSceneBounds.Center = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	mSceneBounds.Radius = sqrtf(10.0f * 10.0f + 15.0f * 15.0f);
 }
@@ -291,6 +303,14 @@ void SSAOApp::OnResize()
 void SSAOApp::Update()
 {
 	OnKeyboardInput();
+
+	mAnimTimePos += mTimer.DeltaTime();
+	if (mAnimTimePos >= mSkullAnimation.GetEndTime()) {
+		mAnimTimePos = 0.0f;
+	}
+	mSkullAnimation.Interpolate(mAnimTimePos, mSkullWorld);
+	mSkullRenderItem->world = mSkullWorld;
+	mSkullRenderItem->NumFramesDirty = frameResourceCount;
 
 	mCurrFrameResourceIndex = (mCurrFrameResourceIndex + 1) % frameResourceCount;
 	mCurrFrameResource = mFrameResource[mCurrFrameResourceIndex].get();
@@ -1414,6 +1434,7 @@ void SSAOApp::BuildRenderItem()
 	skullRenderItem->baseVertexLocation = skullRenderItem->geo->DrawArgs["skullGeo"].BaseVertexLocation;
 	skullRenderItem->startIndexLocation = skullRenderItem->geo->DrawArgs["skullGeo"].StartIndexLocation;
 	mRitemLayer[(int)RenderLayer::Opaque].push_back(skullRenderItem.get());
+	mSkullRenderItem = skullRenderItem.get();
 	mAllRenderItems.push_back(move(skullRenderItem));
 
 	auto gridRenderItem = make_unique<RenderItem>();
@@ -1567,6 +1588,47 @@ void SSAOApp::DrawNormalsAndDepth()
 	DrawRenderItems(mRitemLayer[(int)RenderLayer::Opaque]);
 
 	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(normalMap, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ));
+}
+
+void SSAOApp::DefineSkullAnimation()
+{
+	//
+	// 定义动画的5个关键帧
+	//
+
+	// 根据旋转轴和旋转角计算对应四元数
+
+	XMVECTOR q0 = XMQuaternionRotationAxis(XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), XMConvertToRadians(30.0f));
+	XMVECTOR q1 = XMQuaternionRotationAxis(XMVectorSet(1.0f, 1.0f, 2.0f, 0.0f), XMConvertToRadians(45.0f));
+	XMVECTOR q2 = XMQuaternionRotationAxis(XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), XMConvertToRadians(-30.0f));
+	XMVECTOR q3 = XMQuaternionRotationAxis(XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f), XMConvertToRadians(70.0f));
+
+	// 5个关键帧数据
+	mSkullAnimation.Keyframes.resize(5);
+	mSkullAnimation.Keyframes[0].TimePos = 0.0f;
+	mSkullAnimation.Keyframes[0].Translation = XMFLOAT3(-7.0f, 0.0f, 0.0f);
+	mSkullAnimation.Keyframes[0].Scale = XMFLOAT3(0.25f, 0.25f, 0.25f);
+	XMStoreFloat4(&mSkullAnimation.Keyframes[0].RotationQuat, q0);
+
+	mSkullAnimation.Keyframes[1].TimePos = 0.5f;
+	mSkullAnimation.Keyframes[1].Translation = XMFLOAT3(0.0f, 2.0f, 10.0f);
+	mSkullAnimation.Keyframes[1].Scale = XMFLOAT3(0.5f, 0.5f, 0.5f);
+	XMStoreFloat4(&mSkullAnimation.Keyframes[1].RotationQuat, q1);
+
+	mSkullAnimation.Keyframes[2].TimePos = 1.0f;
+	mSkullAnimation.Keyframes[2].Translation = XMFLOAT3(7.0f, 0.0f, 0.0f);
+	mSkullAnimation.Keyframes[2].Scale = XMFLOAT3(0.25f, 0.25f, 0.25f);
+	XMStoreFloat4(&mSkullAnimation.Keyframes[2].RotationQuat, q2);
+
+	mSkullAnimation.Keyframes[3].TimePos = 1.5f;
+	mSkullAnimation.Keyframes[3].Translation = XMFLOAT3(0.0f, 1.0f, -10.0f);
+	mSkullAnimation.Keyframes[3].Scale = XMFLOAT3(0.5f, 0.5f, 0.5f);
+	XMStoreFloat4(&mSkullAnimation.Keyframes[3].RotationQuat, q3);
+
+	mSkullAnimation.Keyframes[4].TimePos = 2.0f;
+	mSkullAnimation.Keyframes[4].Translation = XMFLOAT3(-7.0f, 0.0f, 0.0f);
+	mSkullAnimation.Keyframes[4].Scale = XMFLOAT3(0.25f, 0.25f, 0.25f);
+	XMStoreFloat4(&mSkullAnimation.Keyframes[4].RotationQuat, q0);//此时又回到原点，所以依然使用q0
 }
 
 CD3DX12_CPU_DESCRIPTOR_HANDLE SSAOApp::GetCpuSrv(int index) const

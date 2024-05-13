@@ -84,6 +84,9 @@
     <ClCompile Include="SSAO.cpp">
       <Filter>资源文件</Filter>
     </ClCompile>
+    <ClCompile Include="AnimHelper.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="d3dx12.h">
@@ -129,6 +132,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="SSAO.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="AnimHelper.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

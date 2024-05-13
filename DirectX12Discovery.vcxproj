@@ -130,6 +130,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AnimHelper.cpp" />
     <ClCompile Include="BlurFilter.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CPUInstancing.cpp" />
@@ -155,6 +156,7 @@
     <ClCompile Include="Waves.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AnimHelper.h" />
     <ClInclude Include="BlurFilter.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="CubeRenderTarget.h" />
