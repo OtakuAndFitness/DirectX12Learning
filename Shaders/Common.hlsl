@@ -30,7 +30,7 @@ TextureCube gCubeMap : register(t0);
 Texture2D gShadowMap : register(t1);
 Texture2D gSsaoMap : register(t2);
 //Texture2D gDiffuseMap[4] : register(t1); //所有漫反射贴图
-Texture2D gTextureMaps[10] : register(t3);
+Texture2D gTextureMaps[48] : register(t3);
 
 StructuredBuffer<MaterialData> gMaterialData : register(t0, space1);
 
@@ -54,7 +54,12 @@ cbuffer cbPerObject : register(b0)
 
 };
 
-cbuffer cbPass : register(b1)
+cbuffer cbSkinned : register(b1)
+{
+    float4x4 gBoneTransforms[96];
+};
+
+cbuffer cbPass : register(b2)
 {
     float4x4 gView;
     float4x4 gProj;

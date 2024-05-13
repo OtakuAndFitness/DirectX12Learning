@@ -75,3 +75,91 @@ void BoneAnimation::Interpolate(float t, XMFLOAT4X4& M) const
 		}
 	}
 }
+
+float AnimationClip::GetClipStartTime() const
+{
+	float t = MathHelper::Infinity;
+	for (UINT i = 0; i < BoneAnimations.size(); i++)
+	{
+		t = MathHelper::Min(t, BoneAnimations[i].GetStartTime());
+	}
+	return t;
+}
+
+float AnimationClip::GetClipEndTime() const
+{
+	float t = MathHelper::Infinity;
+	for (UINT i = 0; i < BoneAnimations.size(); i++)
+	{
+		t = MathHelper::Max(t, BoneAnimations[i].GetEndTime());
+	}
+	return t;
+}
+
+void AnimationClip::Interpolate(float t, vector<XMFLOAT4X4>& boneTransform) const
+{
+	for (UINT i = 0; i < BoneAnimations.size(); i++)
+	{
+		BoneAnimations[i].Interpolate(t, boneTransform[i]);
+	}
+	
+}
+
+UINT SkinnedData::BoneCount() const
+{
+	return mBoneHierarchy.size();
+}
+
+float SkinnedData::GetClipStartTime(const string& clipName) const
+{
+	auto clip = mAnimations.find(clipName);
+	return clip->second.GetClipStartTime();
+}
+
+float SkinnedData::GetClipEndTime(const string& clipName) const
+{
+	auto clip = mAnimations.find(clipName);
+	return clip->second.GetClipEndTime();
+}
+
+void SkinnedData::Set(vector<int>& boneHierarchy, vector<XMFLOAT4X4>& boneOffsets, unordered_map<string, AnimationClip>& animations)
+{
+	mBoneHierarchy = boneHierarchy;
+	mBoneOffsets = boneOffsets;
+	mAnimations = animations;
+}
+
+void SkinnedData::GetFinalTransforms(const string& clipName, float timePos, vector<XMFLOAT4X4>& finalTransforms) const
+{
+	UINT numBones = mBoneOffsets.size();
+
+	vector<XMFLOAT4X4> toParentTransforms(numBones);
+
+	auto clip = mAnimations.find(clipName);
+	clip->second.Interpolate(timePos, toParentTransforms);
+
+	vector<XMFLOAT4X4> toRootTransforms(numBones);
+
+	toRootTransforms[0] = toParentTransforms[0];
+
+	for (UINT i = 0; i < numBones; i++)
+	{
+		XMMATRIX toParent = XMLoadFloat4x4(&toParentTransforms[i]);
+
+		int parentIndex = mBoneHierarchy[i];
+
+		XMMATRIX parentToRoot = XMLoadFloat4x4(&toRootTransforms[parentIndex]);
+		
+		XMMATRIX toRoot = XMMatrixMultiply(toParent, parentToRoot);
+
+		XMStoreFloat4x4(&toRootTransforms[i], toRoot);
+	}
+
+	for (UINT i = 0; i < numBones; i++)
+	{
+		XMMATRIX offset = XMLoadFloat4x4(&mBoneOffsets[i]);
+		XMMATRIX toRoot = XMLoadFloat4x4(&toRootTransforms[i]);
+		XMMATRIX findTransform = XMMatrixMultiply(offset, toRoot);
+		XMStoreFloat4x4(&finalTransforms[i], XMMatrixTranspose(findTransform));
+	}
+}

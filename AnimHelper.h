@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DxException.h"
+#include "MathHelper.h"
 
 using namespace DirectX;
 
@@ -21,4 +22,30 @@ struct BoneAnimation {
 	void Interpolate(float t, XMFLOAT4X4& M)const;// 关键帧插值函数
 
 	vector<Keyframe> Keyframes;
+};
+
+struct AnimationClip {
+	float GetClipStartTime()const;
+	float GetClipEndTime()const;
+
+	void Interpolate(float t, vector<XMFLOAT4X4>& boneTransform)const;
+
+	vector<BoneAnimation> BoneAnimations;
+};
+
+class SkinnedData {
+public:
+	UINT BoneCount()const;
+
+	float GetClipStartTime(const string& clipName)const;
+	float GetClipEndTime(const string& clipName)const;
+
+	void Set(vector<int>& boneHierarchy, vector<XMFLOAT4X4>& boneOffsets, unordered_map<string, AnimationClip>& animations);
+
+	void GetFinalTransforms(const string& clipName, float timePos, vector<XMFLOAT4X4>& finalTransforms)const;
+
+private:
+	vector<int> mBoneHierarchy;
+	vector<XMFLOAT4X4> mBoneOffsets;
+	unordered_map<string, AnimationClip> mAnimations;
 };

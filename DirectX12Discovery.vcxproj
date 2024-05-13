@@ -149,6 +149,7 @@
     <ClCompile Include="ProceduralGeometry.cpp" />
     <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="ShadowMapApp.cpp" />
+    <ClCompile Include="SkinnedMeshApp.cpp" />
     <ClCompile Include="SSAO.cpp" />
     <ClCompile Include="SSAOApp.cpp" />
     <ClCompile Include="StencilDemo.cpp" />

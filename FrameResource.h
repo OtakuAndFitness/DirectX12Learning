@@ -69,6 +69,10 @@ struct SsaoConstants {
 	float surfaceEpsilon = 0.05f;
 };
 
+struct SkinnedConstants {
+	XMFLOAT4X4 boneTransforms[96];
+};
+
 //struct MatConstants {
 //	XMFLOAT4 diffuseAlbedo = { 1.0f,1.0f,1.0f,1.0f };
 //	XMFLOAT3 fresnelR0 = { 0.01f,0.01f, 0.01f };
@@ -104,6 +108,7 @@ struct FrameResource
 	public:
 		FrameResource(ID3D12Device* device, UINT passCount, UINT objCount, UINT matCount, UINT wavesVertCount);
 		FrameResource(ID3D12Device* device, UINT passCount, UINT objCount, UINT matCount);
+		FrameResource(ID3D12Device* device, UINT passCount, UINT objCount, UINT skinnedObjectCount, UINT matCount);
 		//FrameResource::FrameResource(ID3D12Device* device, UINT passCount, UINT maxInstanceCount, UINT matCount);
 		FrameResource(const FrameResource& rhs) = delete;
 		FrameResource& operator = (const FrameResource& rhs) = delete;
@@ -114,6 +119,7 @@ struct FrameResource
 		unique_ptr<UploadBuffer<ObjectConstants>> objCB = nullptr;
 		unique_ptr<UploadBuffer<PassConstants>> passCB = nullptr;
 		unique_ptr<UploadBuffer<SsaoConstants>> ssaoCB = nullptr;
+		unique_ptr<UploadBuffer<SkinnedConstants>> skinnedCB = nullptr;
 		unique_ptr<UploadBuffer<Vertex>> wavesVB = nullptr;
 		unique_ptr<UploadBuffer<MaterialData>> materialBuffer = nullptr;
 		unique_ptr<UploadBuffer<InstanceData>> instanceBuffer = nullptr;
