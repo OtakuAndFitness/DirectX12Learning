@@ -1195,7 +1195,7 @@ void SSAOApp::BuildPSO()
 	baseDesc.SampleMask = UINT_MAX;
 	baseDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	baseDesc.NumRenderTargets = 1;
-	baseDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	baseDesc.RTVFormats[0] = mBackBufferFormat;
 	baseDesc.SampleDesc.Count = 1;
 	baseDesc.SampleDesc.Quality = 0;
 	baseDesc.DSVFormat = mDepthStencilFormat;
@@ -1268,7 +1268,7 @@ void SSAOApp::BuildPSO()
 	ssaoDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
 	ThrowIfFailed(d3dDevice->CreateGraphicsPipelineState(&ssaoDesc, IID_PPV_ARGS(&mPSOs["ssao"])));
 
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC ssaoBlurDesc = baseDesc;
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC ssaoBlurDesc = ssaoDesc;
 	ssaoBlurDesc.VS = {
 		reinterpret_cast<BYTE*>(mShaders["ssaoBlurVS"]->GetBufferPointer()),
 		mShaders["ssaoBlurVS"]->GetBufferSize()
