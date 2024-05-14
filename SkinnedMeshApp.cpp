@@ -612,13 +612,13 @@ void SkinnedMeshApp::UpdateMainPassCB()
 	//passConstants.farZ = 1000.0f;
 	//passConstants.totalTime = mTimer.TotalTime();
 
-	passConstants.ambientLight = { 0.4f, 0.4f, 0.6f, 1.0f };
+	passConstants.ambientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
 	passConstants.lights[0].direction = mRotatedLightDirections[0];
-	passConstants.lights[0].strength = { 0.4f, 0.4f, 0.5f };
+	passConstants.lights[0].strength = { 0.9f, 0.9f, 0.7f };
 	passConstants.lights[1].direction = mRotatedLightDirections[1];
-	passConstants.lights[1].strength = { 0.1f, 0.1f, 0.1f };
+	passConstants.lights[1].strength = { 0.4f, 0.4f, 0.4f };
 	passConstants.lights[2].direction = mRotatedLightDirections[2];
-	passConstants.lights[2].strength = { 0.0f, 0.0f, 0.0f };
+	passConstants.lights[2].strength = { 0.2f, 0.2f, 0.2f };
 
 	auto currPassCB = mCurrFrameResource->passCB.get();
 	currPassCB->CopyData(0, passConstants);

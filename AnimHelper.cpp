@@ -88,7 +88,7 @@ float AnimationClip::GetClipStartTime() const
 
 float AnimationClip::GetClipEndTime() const
 {
-	float t = MathHelper::Infinity;
+	float t = 0.0f;
 	for (UINT i = 0; i < BoneAnimations.size(); i++)
 	{
 		t = MathHelper::Max(t, BoneAnimations[i].GetEndTime());
