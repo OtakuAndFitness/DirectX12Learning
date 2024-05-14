@@ -15,7 +15,7 @@ public:
 		XMFLOAT3 Pos;
 		XMFLOAT3 Normal;
 		XMFLOAT2 TexC;
-		XMFLOAT4 TangentU;
+		XMFLOAT3 TangentU;
 		XMFLOAT3 BoneWeights;
 		BYTE BoneIndices[4];
 	};
