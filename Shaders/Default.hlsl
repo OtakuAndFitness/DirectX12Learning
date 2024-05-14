@@ -43,8 +43,8 @@ VertexOut VS(VertexIn vin)
     float3 tangentL =  float3(0.0f,0.0f,0.0f);
     for(int i = 0;i<4;i++){
         posL += weights[i]*mul(float4(vin.PosL,1.0f), gBoneTransforms[vin.BoneIndices[i]]).xyz;
-        normalL += weights[i]*mul(vin.NormalL,1.0f), (float3x3)gBoneTransforms[vin.BoneIndices[i]];
-        tangentL += weights[i]*mul(vin.TangentL.xyz,1.0f), (float3x3)gBoneTransforms[vin.BoneIndices[i]];
+        normalL += weights[i]*mul(vin.NormalL, (float3x3)gBoneTransforms[vin.BoneIndices[i]]);
+        tangentL += weights[i]*mul(vin.TangentL.xyz, (float3x3)gBoneTransforms[vin.BoneIndices[i]]);
 
     }
     

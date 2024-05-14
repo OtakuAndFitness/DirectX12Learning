@@ -423,6 +423,9 @@ void SkinnedMeshApp::Draw()
 	cmdList->SetPipelineState(mPSOs["opaque"].Get());
 	DrawRenderItems(mRitemLayer[(int)RenderLayer::Opaque]);
 
+	cmdList->SetPipelineState(mPSOs["skinnedOpaque"].Get());
+	DrawRenderItems(mRitemLayer[(int)RenderLayer::SkinnedOpaque]);
+
 	cmdList->SetPipelineState(mPSOs["debug"].Get());
 	DrawRenderItems(mRitemLayer[(int)RenderLayer::Debug]);
 
