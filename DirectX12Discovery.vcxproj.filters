@@ -84,10 +84,13 @@
     <ClCompile Include="SSAO.cpp">
       <Filter>资源文件</Filter>
     </ClCompile>
-    <ClCompile Include="AnimHelper.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="SkinnedMeshApp.cpp">
+      <Filter>资源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="AnimHelper.cpp">
+      <Filter>资源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="LoadM3d.cpp">
       <Filter>资源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -138,6 +141,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="AnimHelper.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="LoadM3d.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

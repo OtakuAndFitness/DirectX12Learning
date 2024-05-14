@@ -86,13 +86,13 @@ private:
 	void UpdateShadowPassCB();
 	void UpdateSsao();
 
+	void LoadSkinnedModel();
 	void LoadTextures();
 	void BuildRootSignature();
 	void BuildSsaoRootSignature();
 	void BuildDescriptorHeaps();
 	void BuildShadersAndInputLayout();
 	void BuildGeometry();
-	void LoadSkinnedModel();
 	void BuildPSO();
 	void BuildFrameResource();
 	void BuildMaterials();
@@ -285,13 +285,13 @@ bool SkinnedMeshApp::Init()
 
 	mSsaoMap = make_unique<SSAO>(d3dDevice.Get(), cmdList.Get(), mClientWidth, mClientHeight);
 
+	LoadSkinnedModel();
 	LoadTextures();
 	BuildRootSignature();
 	BuildSsaoRootSignature();
 	BuildDescriptorHeaps();
 	BuildShadersAndInputLayout();
 	BuildGeometry();
-	LoadSkinnedModel();
 	BuildMaterials();
 	BuildRenderItem();
 	BuildFrameResource();
@@ -1192,7 +1192,7 @@ void SkinnedMeshApp::LoadSkinnedModel()
 	mSkinnedModelInst->clipName = "Take1";
 	mSkinnedModelInst->timePos = 0.0f;
 
-	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(M3Dloader::SkinnedVertex);
 	const UINT ibByteSize = (UINT)indices.size() * sizeof(uint16_t);
 
 	auto geo = make_unique<MeshGeometry>();

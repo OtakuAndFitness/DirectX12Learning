@@ -142,7 +142,7 @@ void SkinnedData::GetFinalTransforms(const string& clipName, float timePos, vect
 
 	toRootTransforms[0] = toParentTransforms[0];
 
-	for (UINT i = 0; i < numBones; i++)
+	for (UINT i = 1; i < numBones; i++)
 	{
 		XMMATRIX toParent = XMLoadFloat4x4(&toParentTransforms[i]);
 

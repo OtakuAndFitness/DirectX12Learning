@@ -143,6 +143,7 @@
     <ClCompile Include="FrameResource.cpp" />
     <ClCompile Include="GamTimer.cpp" />
     <ClCompile Include="LandAndWave.cpp" />
+    <ClCompile Include="LoadM3d.cpp" />
     <ClCompile Include="MathHelper.cpp" />
     <ClCompile Include="NormalMap.cpp" />
     <ClCompile Include="Picking.cpp" />
@@ -167,6 +168,7 @@
     <ClInclude Include="DxException.h" />
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="GameTimer.h" />
+    <ClInclude Include="LoadM3d.h" />
     <ClInclude Include="MathHelper.h" />
     <ClInclude Include="ProceduralGeometry.h" />
     <ClInclude Include="ShadowMap.h" />

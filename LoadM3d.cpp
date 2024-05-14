@@ -137,7 +137,7 @@ void M3Dloader::ReadSkinnedVertices(ifstream& fin, UINT numVertices, vector<Skin
 	{
 		float blah;
 		fin >> ignore >> vertices[i].Pos.x >> vertices[i].Pos.y >> vertices[i].Pos.z;
-		fin >> ignore >> vertices[i].TangentU.x >> vertices[i].TangentU.y >> vertices[i].TangentU.z;
+		fin >> ignore >> vertices[i].TangentU.x >> vertices[i].TangentU.y >> vertices[i].TangentU.z >> blah;
 		fin >> ignore >> vertices[i].Normal.x >> vertices[i].Normal.y >> vertices[i].Normal.z;
 		fin >> ignore >> vertices[i].TexC.x >> vertices[i].TexC.y;
 		fin >> ignore >> weights[0] >> weights[1] >> weights[2] >> weights[3];
